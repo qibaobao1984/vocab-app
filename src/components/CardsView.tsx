@@ -51,7 +51,7 @@ export function CardsView() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<string>('all')
   const [qualityFilter, setQualityFilter] = useState<string>('all')
-  const [sortMode, setSortMode] = useState<'default' | 'asc' | 'desc' | 'starred'>('default')
+  const [sortMode, setSortMode] = useState<'default' | 'asc' | 'desc' | 'starred' | 'errors'>('default')
   const [starFilter, setStarFilter] = useState<'all' | 'starred' | 'unstarred'>('all')
   const [selectedCats, setSelectedCats] = useState<Set<number>>(new Set())
   const catInitRef = useRef(false)
@@ -150,6 +150,10 @@ export function CardsView() {
       result = [...result].sort(
         (a, b) => Number(b.word.starred) - Number(a.word.starred) || b.word.createdAt - a.word.createdAt,
       )
+    } else if (sortMode === 'errors') {
+      result = [...result].sort(
+        (a, b) => (b.card?.quizWrongCount ?? 0) - (a.card?.quizWrongCount ?? 0) || b.word.createdAt - a.word.createdAt,
+      )
     }
     return result
   }, [items, search, filter, qualityFilter, sortMode, starFilter, subtreeIds])
@@ -173,10 +177,6 @@ export function CardsView() {
       else next.add(id)
       return next
     })
-  }
-
-  const cycleSort = () => {
-    setSortMode((m) => (m === 'default' ? 'asc' : m === 'asc' ? 'desc' : m === 'desc' ? 'starred' : 'default'))
   }
 
   const handleToggleStar = (word: WordEntry) => {
@@ -397,32 +397,17 @@ export function CardsView() {
             <option value="starred">星标词</option>
             <option value="unstarred">非星标词</option>
           </select>
-          <button
-            type="button"
-            onClick={cycleSort}
-            className={clsx(
-              'rounded-xl border px-3 py-2 text-sm flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 whitespace-nowrap',
-              sortMode === 'default'
-                ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                : sortMode === 'starred'
-                  ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300'
-                  : 'border-brand-500 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300',
-            )}
-            title="点击切换排序：默认 → A→Z → Z→A → 星标优先 → 默认"
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as 'default' | 'asc' | 'desc' | 'starred' | 'errors')}
+            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              {sortMode === 'asc' ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 14l5-5 5 5M12 9v10" />
-              ) : sortMode === 'desc' ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 10l5 5 5-5M12 5v10" />
-              ) : sortMode === 'starred' ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.5a.5.5 0 01.94 0l2.1 4.26a.5.5 0 00.42.3l4.7.36c.43.03.6.58.27.86l-3.6 3.1a.5.5 0 00-.16.5l1.1 4.6a.5.5 0 01-.74.54l-4.04-2.46a.5.5 0 00-.5 0l-4.04 2.46a.5.5 0 01-.74-.54l1.1-4.6a.5.5 0 00-.16-.5l-3.6-3.1a.5.5 0 01.27-.86l4.7-.36a.5.5 0 00.42-.3L11.48 3.5z" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h18M3 10h12M3 15h8M3 20h4" />
-              )}
-            </svg>
-            <span>{sortMode === 'asc' ? 'A→Z' : sortMode === 'desc' ? 'Z→A' : sortMode === 'starred' ? '星标优先' : '默认'}</span>
-          </button>
+            <option value="default">默认排序</option>
+            <option value="asc">A→Z</option>
+            <option value="desc">Z→A</option>
+            <option value="starred">星标优先</option>
+            <option value="errors">错题优先</option>
+          </select>
           {hasActiveFilter && (
             <button
               type="button"

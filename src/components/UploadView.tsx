@@ -3,7 +3,6 @@ import { repoCategories, repoWordCount } from '../lib/repo'
 import { useStore } from '../store/useStore'
 import { CategorySelect } from './CategorySelect'
 import { Page } from './Page'
-import { getTreeNodes } from '../lib/tree'
 import type { Category } from '../types'
 
 export function UploadView() {
@@ -29,11 +28,7 @@ export function UploadView() {
   const loadCategories = useCallback(async () => {
     const cats = await repoCategories()
     setCategories(cats)
-    if (cats.length > 0 && !selectedCat) {
-      const nodes = getTreeNodes(cats)
-      if (nodes.length > 0) setSelectedCat(String(nodes[0].cat.id))
-    }
-  }, [selectedCat])
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -58,7 +53,10 @@ export function UploadView() {
       return await createCategory(name, parentId)
     }
     if (!selectedCat) {
-      throw new Error('请先选择或新建一个类别')
+      if (!fallbackName) {
+        throw new Error('请先选择或新建一个类别')
+      }
+      return await createCategory(fallbackName, null)
     }
     return Number(selectedCat)
   }, [creatingNew, newCatName, newCatParent, selectedCat, createCategory])
@@ -74,16 +72,9 @@ export function UploadView() {
         const results: { name: string; count: number }[] = []
         for (const file of fileArr) {
           const fileName = file.name.replace(/\.[^/.]+$/, '')
-          let categoryId: number
-          if (creatingNew && !newCatName.trim()) {
-            const parentId = newCatParent === 'none' ? null : Number(newCatParent)
-            categoryId = await createCategory(fileName, parentId)
-          } else {
-            const id = await resolveCategoryId(fileName)
-            if (id === null) continue
-            categoryId = id
-          }
-          const count = await importFile(file, categoryId)
+          const id = await resolveCategoryId(fileName)
+          if (id === null) continue
+          const count = await importFile(file, id)
           total += count
           results.push({ name: fileName, count })
         }
@@ -104,7 +95,7 @@ export function UploadView() {
         }
       }
     },
-    [importFile, resolveCategoryId, loadCategories, creatingNew, newCatName, newCatParent, createCategory],
+    [importFile, resolveCategoryId, loadCategories, creatingNew],
   )
 
   const onDrop = useCallback(
@@ -155,7 +146,7 @@ export function UploadView() {
         </div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">导入单词</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
-          上传 PDF、Word(.docx) 或 TXT 文件，自动解析单词与释义
+          上传 Excel、PDF、Word(.docx) 或 TXT 文件，自动解析单词与释义
         </p>
       </div>
 
@@ -213,6 +204,13 @@ export function UploadView() {
         <p className="text-xs text-gray-400 mt-2">
           支持多文件批量导入。新建类别时名字留空，每个文件会以文件名自动建类别
         </p>
+        <div className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 p-3 space-y-1">
+          <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">格式要求</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400"><b className="text-gray-600 dark:text-gray-300">TXT</b>：每行一个单词，单词和释义之间用破折号、Tab 或多空格分隔</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400"><b className="text-gray-600 dark:text-gray-300">PDF</b>：同 TXT 格式，系统自动提取文字（扫描版不支持）</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400"><b className="text-gray-600 dark:text-gray-300">Word</b>：同 TXT 格式，系统自动提取纯文本</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400"><b className="text-gray-600 dark:text-gray-300">Excel</b>：A列单词、B列释义、C列音标、D列例句，有表头自动跳过</p>
+        </div>
       </div>
 
       <div
@@ -232,7 +230,7 @@ export function UploadView() {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.docx,.doc,.txt"
+          accept=".xlsx,.xls,.pdf,.docx,.doc,.txt"
           multiple
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
@@ -250,7 +248,7 @@ export function UploadView() {
             <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
               点击或拖拽文件到此处（可多选）
             </p>
-            <p className="text-xs text-gray-400">支持 PDF / Word / TXT</p>
+            <p className="text-xs text-gray-400">支持 Excel / PDF / Word / TXT</p>
           </div>
         )}
       </div>

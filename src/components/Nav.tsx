@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import clsx from 'clsx'
+import { Home, FileInput, LayoutGrid, Repeat, ClipboardCheck, CircleX, ClipboardList, BarChart3 } from 'lucide-react'
 import { useStore, type Tab } from '../store/useStore'
 import { useAuth } from '../store/useAuth'
 import { supabaseEnabled } from '../lib/supabase'
 import { ChangePasswordDialog } from './ChangePasswordDialog'
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'home', label: '首页', icon: 'M3 12l9-9 9 9M5 10v10h14V10' },
-  { id: 'upload', label: '导入', icon: 'M12 4v16m8-8H4' },
-  { id: 'cards', label: '卡片', icon: 'M4 4h16v16H4z' },
-  { id: 'review', label: '复习', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { id: 'quiz', label: '测验', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { id: 'mistakes', label: '错题', icon: 'M6 3h12a2 2 0 012 2v16l-8-4-8 4V5a2 2 0 012-2z' },
-  { id: 'history', label: '记录', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M3 3l4 4M3 3v4M3 3h4' },
-  { id: 'stats', label: '统计', icon: 'M3 3v18h18M7 14l4-4 4 4 5-5' },
+const TABS: { id: Tab; label: string; Icon: typeof Home }[] = [
+  { id: 'home', label: '首页', Icon: Home },
+  { id: 'upload', label: '导入', Icon: FileInput },
+  { id: 'cards', label: '卡片', Icon: LayoutGrid },
+  { id: 'review', label: '复习', Icon: Repeat },
+  { id: 'quiz', label: '测验', Icon: ClipboardCheck },
+  { id: 'mistakes', label: '错题', Icon: CircleX },
+  { id: 'history', label: '记录', Icon: ClipboardList },
+  { id: 'stats', label: '统计', Icon: BarChart3 },
 ]
 
 export function Nav() {
@@ -29,29 +30,24 @@ export function Nav() {
       <nav className="relative border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur sticky top-0 z-20">
         <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto w-full overflow-x-auto px-4 sm:px-6 py-2">
           <div className="flex items-center justify-center gap-1 w-max min-w-full mx-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={clsx(
-                'flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors whitespace-nowrap',
-                activeTab === tab.id
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
-              )}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
+          {TABS.map((tab) => {
+            const Icon = tab.Icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={clsx(
+                  'flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+                )}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
-              </svg>
-              {tab.label}
-            </button>
-          ))}
+                <Icon size={20} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+                {tab.label}
+              </button>
+            )
+          })}
           </div>
         </div>
         {supabaseEnabled && session && (

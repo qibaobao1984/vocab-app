@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
+import * as XLSX from 'xlsx'
 import type { ParsedWord } from '../types'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
@@ -148,6 +149,63 @@ export function parseText(text: string): ParseResult {
   return { words: unique, totalLines }
 }
 
+export async function extractExcelRows(file: File): Promise<string[][]> {
+  const buf = await file.arrayBuffer()
+  const wb = XLSX.read(buf, { type: 'array' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  if (!ws) return []
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 })
+  return rows.map((row) => (row || []).map((cell) => String(cell ?? '').trim()))
+}
+
+const HEADER_KEYWORDS = ['word', '单词', '英文', '词汇', 'term', 'text', '词', 'meaning', '释义', '中文', 'meaning', '翻译', 'phonetic', '音标', 'example', '例句']
+
+function isHeaderRow(row: string[]): boolean {
+  const lower = row.map((c) => c.toLowerCase())
+  return lower.some((c) => HEADER_KEYWORDS.includes(c))
+}
+
+export function parseExcelRows(rows: string[][]): ParseResult {
+  const words: ParsedWord[] = []
+  let totalLines = 0
+  let skippedHeader = false
+
+  for (const row of rows) {
+    if (!row.length || row.every((c) => !c)) continue
+    totalLines++
+    if (!skippedHeader && isHeaderRow(row)) {
+      skippedHeader = true
+      continue
+    }
+    const word = row[0] || ''
+    const meaning = row[1] || ''
+    if (!word) continue
+    if (row.length === 1 || !meaning) {
+      const parsed = splitWordMeaning(row[0])
+      if (parsed && parsed.text) {
+        words.push(parsed)
+      }
+      continue
+    }
+    words.push({
+      text: word,
+      meaning,
+      phonetic: row[2] || undefined,
+      example: row[3] || undefined,
+    })
+  }
+
+  const seen = new Set<string>()
+  const unique = words.filter((w) => {
+    const key = w.text.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  return { words: unique, totalLines }
+}
+
 export async function parseFile(file: File): Promise<ParseResult> {
   const ext = file.name.split('.').pop()?.toLowerCase()
   let text: string
@@ -158,8 +216,11 @@ export async function parseFile(file: File): Promise<ParseResult> {
     text = await extractDocxText(file)
   } else if (ext === 'txt') {
     text = await file.text()
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    const rows = await extractExcelRows(file)
+    return parseExcelRows(rows)
   } else {
-    throw new Error(`不支持的文件格式: .${ext}，请上传 PDF、Word(.docx) 或 TXT 文件`)
+    throw new Error(`不支持的文件格式: .${ext}，请上传 Excel、PDF、Word(.docx) 或 TXT 文件`)
   }
 
   return parseText(text)
