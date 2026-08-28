@@ -1,0 +1,7 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# 环境变量请在 Netlify 控制台设置（Site settings → Environment variables）：
+#   VITE_SUPABASE_URL       = https://xxxx.supabase.co
+#   VITE_SUPABASE_ANON_KEY  = <anon public key>
