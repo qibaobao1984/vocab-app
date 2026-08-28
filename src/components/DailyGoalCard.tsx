@@ -1,19 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { repoGetLearningDays } from '../lib/repo'
 import { useDailyGoal, localYMD } from '../store/dailyGoalStore'
+import { useStore } from '../store/useStore'
 import clsx from 'clsx'
 
+function computeStreak(dates: string[]): number {
+  if (dates.length === 0) return 0
+  const set = new Set(dates)
+  const d = new Date()
+  if (!set.has(localYMD())) d.setDate(d.getDate() - 1)
+  let streak = 0
+  while (set.has(localYMD(d))) {
+    streak++
+    d.setDate(d.getDate() - 1)
+  }
+  return streak
+}
+
 export function DailyGoalCard() {
+  const refreshKey = useStore((s) => s.refreshKey)
   const dailyGoal = useDailyGoal((s) => s.dailyGoal)
   const todayStats = useDailyGoal((s) => s.todayStats)
-  const streakDays = useDailyGoal((s) => s.streakDays)
-  const lastCheckinDate = useDailyGoal((s) => s.lastCheckinDate)
-  const checkin = useDailyGoal((s) => s.checkin)
   const setGoal = useDailyGoal((s) => s.setGoal)
+  const [streak, setStreak] = useState(0)
   const [editing, setEditing] = useState(false)
   const [nw, setNw] = useState(dailyGoal.newWords)
   const [rv, setRv] = useState(dailyGoal.reviews)
 
-  const checkedIn = lastCheckinDate === localYMD()
+  useEffect(() => {
+    void repoGetLearningDays().then((dates) => setStreak(computeStreak(dates)))
+  }, [refreshKey])
+
   const newPct = dailyGoal.newWords > 0 ? Math.min(100, (todayStats.newLearned / dailyGoal.newWords) * 100) : 0
   const revPct = dailyGoal.reviews > 0 ? Math.min(100, (todayStats.reviewed / dailyGoal.reviews) * 100) : 0
   const newDone = dailyGoal.newWords > 0 && todayStats.newLearned >= dailyGoal.newWords
@@ -41,14 +58,7 @@ export function DailyGoalCard() {
               </svg>
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-orange-500 font-medium">🔥 {streakDays} 天</span>
-            {checkedIn ? (
-              <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-lg">已打卡</span>
-            ) : (
-              <button onClick={() => void checkin()} className="btn-primary text-xs px-3 py-1">打卡</button>
-            )}
-          </div>
+          <span className="text-xs text-orange-500 font-medium">🔥 连续学习 {streak} 天</span>
         </div>
 
         {editing ? (

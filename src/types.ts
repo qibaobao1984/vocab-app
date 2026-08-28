@@ -116,3 +116,9 @@ export interface StudyPlan {
   enabled: boolean
   createdAt: number
 }
+
+export interface LearningDay {
+  id?: number
+  date: string
+  createdAt: number
+}

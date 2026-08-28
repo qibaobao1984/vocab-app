@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { repoMarkLearnedToday } from '../lib/repo'
 import { speak } from '../lib/tts'
 import { getCategoryNamePath } from '../lib/tree'
 import { wordPhonetic } from '../lib/word'
@@ -117,6 +118,11 @@ export function ReadingMode({ words, categories, onExit }: ReadingModeProps) {
       /* ignore */
     }
   }, [intervalSec])
+
+  // mark learning day when finished
+  useEffect(() => {
+    if (finished) void repoMarkLearnedToday()
+  }, [finished])
 
   // persist autoSpeak preference
   useEffect(() => {

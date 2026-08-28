@@ -84,8 +84,8 @@ export function HistoryView() {
   const [pageInput, setPageInput] = useState('')
   const [wrongPage, setWrongPage] = useState(1)
   const [wrongPageInput, setWrongPageInput] = useState('')
-  const PAGE_SIZE = 10
-  const WRONG_PAGE_SIZE = 12
+const PAGE_SIZE = 5
+const WRONG_PAGE_SIZE = 12
 
   useEffect(() => {
     let active = true

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { repoCards, repoSessions, repoQuizSessions, repoWordCount, repoWords, repoCategories } from '../lib/repo'
+import { repoCards, repoSessions, repoQuizSessions, repoWordCount, repoWords, repoCategories, repoGetLearningDays } from '../lib/repo'
 import { useStore } from '../store/useStore'
 import { getDescendantIds } from '../lib/tree'
 import { QUALITY_MARK } from '../lib/sm2'
@@ -130,8 +130,11 @@ export function StatsView() {
   const [starredCount, setStarredCount] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [words, setWords] = useState<WordEntry[]>([])
-  const [view, setView] = useState<'trend' | 'forgetting'>('trend')
+  const [view, setView] = useState<'trend' | 'forgetting' | 'calendar'>('trend')
   const [detailWord, setDetailWord] = useState<WordEntry | null>(null)
+  const [learningDays, setLearningDays] = useState<string[]>([])
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear())
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth())
   const [fp, setFp] = useState(0)
   const [catStats, setCatStats] = useState<Record<number, { total: number; mastered: number }>>({})
   const [loading, setLoading] = useState(true)
@@ -158,6 +161,7 @@ export function StatsView() {
       setWords(words)
       setStarredCount(words.reduce((n, wd) => n + (wd.starred ? 1 : 0), 0))
       setCategories(cats)
+      void repoGetLearningDays().then(setLearningDays)
       const cardMap = new Map(c.map((card) => [card.wordId, card]))
       const stats: Record<number, { total: number; mastered: number }> = {}
       for (const cat of cats) {
@@ -428,6 +432,15 @@ export function StatsView() {
         >
           遗忘分析
         </button>
+        <button
+          onClick={() => setView('calendar')}
+          className={clsx(
+            'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+            view === 'calendar' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600',
+          )}
+        >
+          学习日历
+        </button>
       </div>
 
       {view === 'trend' && (
@@ -649,6 +662,72 @@ export function StatsView() {
           )}
         </div>
       )}
+
+      {view === 'calendar' && (() => {
+        const learningSet = new Set(learningDays)
+        const firstWeekday = (new Date(calYear, calMonth, 1).getDay() + 6) % 7
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+        const cells: (number | null)[] = []
+        for (let i = 0; i < firstWeekday; i++) cells.push(null)
+        for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+        while (cells.length % 7 !== 0) cells.push(null)
+        const monthLabel = `${calYear}年${calMonth + 1}月`
+        const today = new Date()
+        const isCurrentMonth = calYear === today.getFullYear() && calMonth === today.getMonth()
+        const cellColor = (day: number) => {
+          const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          if (!learningSet.has(ds)) return 'bg-gray-100 dark:bg-gray-700'
+          return 'bg-green-500 text-white'
+        }
+        return (
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={() => { if (calMonth === 0) { setCalYear((y) => y - 1); setCalMonth(11) } else setCalMonth((m) => m - 1) }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{monthLabel}</span>
+              <button
+                onClick={() => { if (calMonth === 11) { setCalYear((y) => y + 1); setCalMonth(0) } else setCalMonth((m) => m + 1) }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {['一', '二', '三', '四', '五', '六', '日'].map((w) => (
+                <div key={w} className="text-center text-[10px] text-gray-400 font-medium">{w}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {cells.map((day, i) => (
+                <div
+                  key={i}
+                  className={clsx(
+                    'h-8 rounded-lg flex items-center justify-center text-[10px] transition-colors',
+                    day === null ? 'bg-transparent' : cellColor(day),
+                    day !== null && isCurrentMonth && day === today.getDate() && 'ring-2 ring-brand-500',
+                  )}
+                >
+                  {day ?? ''}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-3 mt-4">
+              <span className="w-4 h-4 rounded bg-gray-100 dark:bg-gray-700" />
+              <span className="text-[10px] text-gray-400">未学习</span>
+              <span className="w-4 h-4 rounded bg-green-500" />
+              <span className="text-[10px] text-gray-400">已学习</span>
+            </div>
+          </div>
+        )
+      })()}
 
       {detailWord && (
         <WordDetail

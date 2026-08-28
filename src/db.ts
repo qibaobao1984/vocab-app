@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { WordEntry, WordMeaning, SrsCard, ReviewLog, SessionStat, Category, Mistake, QuizSession, DailySettings, StudyPlan } from './types'
+import type { WordEntry, WordMeaning, SrsCard, ReviewLog, SessionStat, Category, Mistake, QuizSession, DailySettings, StudyPlan, LearningDay } from './types'
 
 class VocabDB extends Dexie {
   words!: Table<WordEntry, number>
@@ -11,6 +11,7 @@ class VocabDB extends Dexie {
   quizSessions!: Table<QuizSession, number>
   userSettings!: Table<DailySettings & { id: number }, number>
   studyPlans!: Table<StudyPlan, number>
+  learningDays!: Table<LearningDay, number>
 
   constructor() {
     super('vocab-db')
@@ -156,6 +157,18 @@ class VocabDB extends Dexie {
       quizSessions: '++id, date, mode',
       userSettings: 'id',
       studyPlans: '++id, name, enabled',
+    })
+    this.version(10).stores({
+      words: '++id, text, createdAt, starred',
+      cards: '++id, wordId, status, dueDate',
+      logs: '++id, cardId, wordId, timestamp',
+      sessions: '++id, &date',
+      categories: '++id, name, parentId, createdAt',
+      mistakes: '++id, wordId, categoryId, resolved, createdAt',
+      quizSessions: '++id, date, mode',
+      userSettings: 'id',
+      studyPlans: '++id, name, enabled',
+      learningDays: '++id, &date',
     })
   }
 }

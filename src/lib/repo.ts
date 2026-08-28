@@ -590,6 +590,32 @@ export function repoDeleteStudyPlan(id: number): Promise<void> {
   )
 }
 
+function repoLocalYMD(d = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+export async function repoMarkLearnedToday(): Promise<void> {
+  if (!remoteActive()) throw new Error('Supabase 未连接，请先登录')
+  const today = repoLocalYMD()
+  const { data, error } = await supabase!.from('learning_days').select('id').eq('date', today).limit(1)
+  if (error) throw new Error(error.message)
+  if (data && data.length > 0) return
+  const { error: insErr } = await supabase!.from('learning_days').insert({ date: today, created_at: Date.now() })
+  if (insErr && !insErr.message.includes('duplicate') && !insErr.message.includes('unique')) {
+    throw new Error(insErr.message)
+  }
+}
+
+export function repoGetLearningDays(): Promise<string[]> {
+  return withFallback(
+    async () => (await selectAll<{ id: number; date: string; created_at: number }>('learning_days')).map((r) => r.date),
+    async () => (await db.learningDays.toArray()).map((r) => r.date),
+  )
+}
+
 export function repoDeleteWordCascade(wordId: number): Promise<void> {
   return withFallback(
     async () => {

@@ -7,6 +7,15 @@ import { wordPhonetic } from '../lib/word'
 import clsx from 'clsx'
 import type { WordEntry, Category } from '../types'
 
+function meaningFontSize(text: string): string {
+  const len = (text || '').length
+  if (len <= 6) return 'text-2xl'
+  if (len <= 12) return 'text-xl'
+  if (len <= 20) return 'text-lg'
+  if (len <= 40) return 'text-base'
+  return 'text-sm'
+}
+
 export function RandomWordCard() {
   const setActiveTab = useStore((s) => s.setActiveTab)
   const [word, setWord] = useState<WordEntry | null>(null)
@@ -91,18 +100,20 @@ export function RandomWordCard() {
                   <p className="text-xs text-gray-400 mt-3">点击翻面查看释义</p>
                 </div>
               </div>
-              <div className="flip-face flip-back card absolute inset-0 flex flex-col p-4 overflow-hidden">
-                <div className="flex-1 overflow-y-auto mt-4 space-y-2">
+              <div className="flip-face flip-back card absolute inset-0 flex flex-col items-center justify-center p-4 overflow-hidden">
+                <div className="flex-1 overflow-y-auto w-full flex flex-col items-center justify-center gap-3 mt-4">
                   {word.meanings.map((m, mi) => {
                     const path = getCategoryNamePath(categories, m.categoryId) || '未分类'
                     return (
-                      <div key={mi} className="text-left">
-                        <p className="text-[10px] text-brand-500 dark:text-brand-400 font-medium">{path}</p>
-                        <p className="text-sm text-gray-700 dark:text-gray-200 leading-snug">
+                      <div key={mi} className="text-center max-w-full px-2">
+                        <p className="text-[10px] text-brand-500 dark:text-brand-400 font-medium mb-1">{path}</p>
+                        <p className={clsx('font-bold text-gray-900 dark:text-gray-50 leading-tight break-words', meaningFontSize(m.meaning))}>
                           {m.meaning || '(无释义)'}
                         </p>
                         {m.example && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">{m.example}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed mt-1.5 break-words">
+                            {m.example}
+                          </p>
                         )}
                       </div>
                     )

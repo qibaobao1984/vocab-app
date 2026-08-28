@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { repoWords, repoWordCount, repoCategories, repoSaveQuizProgress, repoLoadQuizProgress, repoClearQuizProgress } from '../lib/repo'
+import { repoWords, repoWordCount, repoCategories, repoSaveQuizProgress, repoLoadQuizProgress, repoClearQuizProgress, repoMarkLearnedToday } from '../lib/repo'
 import { useStore } from '../store/useStore'
 import { useDailyGoal } from '../store/dailyGoalStore'
 import { speak, speakGrade } from '../lib/tts'
@@ -581,6 +581,7 @@ export function QuizView({ active }: { active: boolean }) {
     })
     useDailyGoal.getState().incrementReview(total)
     void useDailyGoal.getState().persist()
+    void repoMarkLearnedToday()
   }, [mode, stats, wrongItems, quizMode, quizLabel, quizRetest, saveQuizSession])
 
   useEffect(() => {

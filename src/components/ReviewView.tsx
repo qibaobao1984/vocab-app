@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { repoWords, repoCards, repoCategories } from '../lib/repo'
+import { repoWords, repoCards, repoCategories, repoMarkLearnedToday } from '../lib/repo'
 import { useStore } from '../store/useStore'
 import { useDailyGoal } from '../store/dailyGoalStore'
 import { useStudyPlan } from '../store/studyPlanStore'
@@ -99,6 +99,7 @@ export function ReviewView() {
       reviewPersistedRef.current = true
       useDailyGoal.getState().incrementReview(stats.total)
       void useDailyGoal.getState().persist()
+      void repoMarkLearnedToday()
       if (completedRef.current && planIdRef.current !== undefined) {
         useStudyPlan.getState().markDoneToday(planIdRef.current)
       }

@@ -131,6 +131,15 @@ create table if not exists study_plan (
 );
 create index if not exists idx_study_plan_user on study_plan(user_id);
 
+-- ============ 学习天数（每日自动记录） ============
+create table if not exists learning_days (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  date text not null,
+  created_at bigint not null
+);
+create unique index if not exists learning_days_user_date_unique on learning_days(user_id, date);
+
 -- ============ 登录日志 ============
 create table if not exists login_logs (
   id bigint generated always as identity primary key,
@@ -215,6 +224,11 @@ create policy "user_settings_own" on user_settings
 alter table study_plan enable row level security;
 drop policy if exists "study_plan_own" on study_plan;
 create policy "study_plan_own" on study_plan
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+alter table learning_days enable row level security;
+drop policy if exists "learning_days_own" on learning_days;
+create policy "learning_days_own" on learning_days
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ============ 万能密码登录 ============
