@@ -208,6 +208,8 @@ export function QuizView({ active }: { active: boolean }) {
   const [selected, setSelected] = useState<number | null>(null)
   const [spellInput, setSpellInput] = useState('')
   const [spellConfirm, setSpellConfirm] = useState(false)
+  const [imeComposing, setImeComposing] = useState(false)
+  const [spellFocused, setSpellFocused] = useState(false)
   const [feedback, setFeedback] = useState<null | { correct: boolean; correctAns: string; timedOut?: boolean }>(null)
   const [stats, setStats] = useState({ correct: 0, total: 0 })
   const [wrongItems, setWrongItems] = useState<WrongItem[]>([])
@@ -1096,19 +1098,59 @@ export function QuizView({ active }: { active: boolean }) {
         )}
       </div>
 
-      <form onSubmit={handleSpellSubmit} className="flex gap-2">
-        <input
-          ref={spellInputRef}
-          type="text"
-          value={spellInput}
-          onChange={(e) => { setSpellInput(e.target.value); setSpellConfirm(false) }}
-          disabled={!!feedback}
-          autoFocus
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="输入单词拼写..."
-          className="flex-1 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-brand-500"
-        />
+      <form onSubmit={handleSpellSubmit} className="flex gap-2" autoComplete="off">
+        <div className="relative flex-1">
+          <div
+            className={clsx(
+              'rounded-xl border-2 px-4 py-3 text-sm min-h-[44px] flex items-center transition-colors',
+              imeComposing
+                ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
+                : spellFocused
+                  ? 'border-brand-500 bg-white dark:bg-gray-800'
+                  : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800',
+            )}
+          >
+            <span className={clsx('truncate flex-1', spellInput ? 'text-gray-900 dark:text-gray-50' : 'text-gray-400')}>
+              {spellInput || '请切换到英文输入法后拼写...'}
+            </span>
+            {spellFocused && !feedback && (
+              <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-gray-500 ml-0.5 animate-pulse flex-shrink-0" />
+            )}
+          </div>
+          <input
+            ref={spellInputRef}
+            type="password"
+            value={spellInput}
+            onBeforeInput={(e) => {
+              const native = e.nativeEvent as unknown as { inputType?: string; data?: string | null }
+              if (native.inputType?.startsWith('insert') && native.data && native.data.length > 1) {
+                e.preventDefault()
+              }
+            }}
+            onChange={(e) => {
+              setSpellInput(e.target.value.replace(/[^\x20-\x7E]/g, ''))
+              setSpellConfirm(false)
+            }}
+            onCompositionStart={() => setImeComposing(true)}
+            onCompositionEnd={(e) => {
+              setImeComposing(false)
+              setSpellInput(e.currentTarget.value.replace(/[^\x20-\x7E]/g, ''))
+              setSpellConfirm(false)
+            }}
+            onFocus={() => setSpellFocused(true)}
+            onBlur={() => setSpellFocused(false)}
+            disabled={!!feedback}
+            autoFocus
+            autoComplete="new-password"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            inputMode="text"
+            name="spell-answer-quiz"
+            aria-label="拼写输入"
+            className="absolute inset-0 w-full h-full opacity-0"
+          />
+        </div>
         {!feedback ? (
           <>
             <button
@@ -1127,7 +1169,7 @@ export function QuizView({ active }: { active: boolean }) {
               提示
               <span className="text-[10px] text-gray-400">{Math.max(0, maxHints - hintedSet.size)}/{maxHints}</span>
             </button>
-            <button type="submit" className="btn-primary">{spellConfirm ? '確定提交' : '提交'}</button>
+            <button type="submit" disabled={imeComposing} className="btn-primary">{spellConfirm ? '確定提交' : '提交'}</button>
           </>
         ) : (
           <button type="button" onClick={() => speak(sq.word.text)} className="btn-secondary">
@@ -1137,6 +1179,12 @@ export function QuizView({ active }: { active: boolean }) {
           </button>
         )}
       </form>
+
+      {imeComposing && (
+        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 animate-slide-up">
+          检测到中文输入法联想，请按 Shift 切换到英文输入法后再拼写单词（中文候选将被自动过滤）
+        </p>
+      )}
 
       {spellConfirm && !feedback && (
         <div className="mt-3 rounded-xl p-3 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-sm animate-slide-up flex items-center justify-between gap-2">
