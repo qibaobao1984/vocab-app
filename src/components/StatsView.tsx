@@ -185,7 +185,23 @@ export function StatsView() {
     return counts
   }, [cards])
 
-  const totalReviews = useMemo(() => cards.reduce((sum, c) => sum + c.totalReviews, 0), [cards])
+  const learningDaysCount = learningDays.length
+  const streak = useMemo(() => {
+    const set = new Set(learningDays)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const cur = new Date(today)
+    if (!set.has(ymd(cur))) {
+      cur.setDate(cur.getDate() - 1)
+      if (!set.has(ymd(cur))) return 0
+    }
+    let count = 0
+    while (set.has(ymd(cur))) {
+      count++
+      cur.setDate(cur.getDate() - 1)
+    }
+    return count
+  }, [learningDays])
   const quizTotal = useMemo(() => quizSessions.reduce((sum, q) => sum + q.total, 0), [quizSessions])
   const quizCorrect = useMemo(() => quizSessions.reduce((sum, q) => sum + q.correct, 0), [quizSessions])
   const accuracy = quizTotal > 0 ? Math.round((quizCorrect / quizTotal) * 100) : 0
@@ -362,7 +378,7 @@ export function StatsView() {
       <div className="grid grid-cols-2 gap-3 mb-6">
         <StatCard label="总单词数" value={totalWords} icon="📚" accent="text-brand-600" sub={starredCount > 0 ? `⭐ ${starredCount}` : undefined} />
         <StatCard label="已掌握" value={statusCounts.mastered} icon="✓" accent="text-green-600" sub={`${masteredRate}%`} />
-        <StatCard label="总复习次数" value={totalReviews} icon="🔁" accent="text-amber-600" />
+        <StatCard label="累计学习天数" value={learningDaysCount} icon="📅" accent="text-amber-600" sub={streak > 0 ? `连续 ${streak} 天` : undefined} />
         <StatCard label="正确率" value={`${accuracy}%`} icon="🎯" accent="text-blue-600" sub={quizTotal > 0 ? `${quizCorrect}/${quizTotal}` : undefined} />
       </div>
 
