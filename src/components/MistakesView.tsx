@@ -156,9 +156,13 @@ export function MistakesView() {
     if (testMode === 'mixed') {
       const words: WordEntry[] = []
       const modes: ('choice' | 'spell' | 'posconv')[] = []
+      const seen = new Set<string>()
       for (const m of list) {
         const w = wordMap.get(m.wordId)
         if (!w) continue
+        const key = `${m.wordId}-${m.mode}`
+        if (seen.has(key)) continue
+        seen.add(key)
         words.push(w)
         modes.push(m.mode)
       }
