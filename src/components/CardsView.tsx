@@ -167,7 +167,6 @@ export function CardsView() {
 
   useEffect(() => {
     setPage(1)
-    setSelected(new Set())
   }, [search, filter, qualityFilter, sortMode, starFilter, subtreeIds])
 
   const toggleFlip = (id: number) => {
@@ -467,16 +466,15 @@ export function CardsView() {
           {selectMode && <span className="text-xs text-gray-400">已选 {selected.size} 项</span>}
         </div>
         <div className="flex gap-2 items-center">
-          {!selectMode && filtered.length > 0 && (
-            <button
-              onClick={() => launchQuizFromWords(filtered.map((f) => f.word), 'choice')}
-              className="text-xs text-brand-600 hover:text-brand-700 font-medium"
-            >
-              去测验（{filtered.length} 词） →
-            </button>
-          )}
           {selectMode ? (
             <>
+              <button
+                onClick={() => launchQuizFromWords(selectedWords, 'spell')}
+                disabled={selected.size === 0}
+                className="text-xs text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded-lg transition-colors font-medium"
+              >
+                去拼写测试（{selected.size}）
+              </button>
               <button
                 onClick={() => setDeleteTarget({ kind: 'words', words: selectedWords })}
                 disabled={selected.size === 0}
@@ -498,7 +496,7 @@ export function CardsView() {
                   onClick={() => setSelectMode(true)}
                   className="text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
                 >
-                  多选删除
+                  多选
                 </button>
               )}
               {selectedCats.size > 0 && selectedCats.size < categories.length && selectedCatCount > 0 && (

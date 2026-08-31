@@ -1169,7 +1169,7 @@ export function QuizView({ active }: { active: boolean }) {
               提示
               <span className="text-[10px] text-gray-400">{Math.max(0, maxHints - hintedSet.size)}/{maxHints}</span>
             </button>
-            <button type="submit" disabled={imeComposing} className="btn-primary">{spellConfirm ? '確定提交' : '提交'}</button>
+            <button type="submit" disabled={imeComposing} className="btn-primary">{spellConfirm ? '确定提交' : '提交'}</button>
           </>
         ) : (
           <button type="button" onClick={() => speak(sq.word.text)} className="btn-secondary">
