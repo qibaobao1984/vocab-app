@@ -1110,16 +1110,23 @@ export function QuizView({ active }: { active: boolean }) {
                   : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800',
             )}
           >
-            <span className={clsx('truncate flex-1', spellInput ? 'text-gray-900 dark:text-gray-50' : 'text-gray-400')}>
-              {spellInput || '请切换到英文输入法后拼写...'}
+            <span className="flex-1 min-w-0 truncate">
+              {spellFocused && !feedback && !spellInput && (
+                <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-gray-500 mr-0.5 animate-pulse align-middle" />
+              )}
+              {spellInput ? (
+                <span className="whitespace-pre text-gray-900 dark:text-gray-50">{spellInput}</span>
+              ) : (
+                <span className="text-gray-400">请切换到英文输入法后拼写...</span>
+              )}
+              {spellFocused && !feedback && spellInput && (
+                <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-gray-500 ml-0.5 animate-pulse align-middle" />
+              )}
             </span>
-            {spellFocused && !feedback && (
-              <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-gray-500 ml-0.5 animate-pulse flex-shrink-0" />
-            )}
           </div>
           <input
             ref={spellInputRef}
-            type="password"
+            type="text"
             value={spellInput}
             onBeforeInput={(e) => {
               const native = e.nativeEvent as unknown as { inputType?: string; data?: string | null }
@@ -1131,23 +1138,26 @@ export function QuizView({ active }: { active: boolean }) {
               setSpellInput(e.target.value.replace(/[^\x20-\x7E]/g, ''))
               setSpellConfirm(false)
             }}
-            onCompositionStart={() => setImeComposing(true)}
+            onCompositionStart={(e) => {
+              setImeComposing(true)
+              e.currentTarget.blur()
+            }}
             onCompositionEnd={(e) => {
-              setImeComposing(false)
               setSpellInput(e.currentTarget.value.replace(/[^\x20-\x7E]/g, ''))
               setSpellConfirm(false)
             }}
-            onFocus={() => setSpellFocused(true)}
+            onFocus={() => { setSpellFocused(true); setImeComposing(false) }}
             onBlur={() => setSpellFocused(false)}
             disabled={!!feedback}
             autoFocus
-            autoComplete="new-password"
+            autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
             inputMode="text"
             name="spell-answer-quiz"
             aria-label="拼写输入"
+            lang="en"
             className="absolute inset-0 w-full h-full opacity-0"
           />
         </div>
@@ -1182,7 +1192,7 @@ export function QuizView({ active }: { active: boolean }) {
 
       {imeComposing && (
         <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 animate-slide-up">
-          检测到中文输入法联想，请按 Shift 切换到英文输入法后再拼写单词（中文候选将被自动过滤）
+          已拦截中文输入法联想。请按 Shift 切换到英文输入法，然后点击输入框继续拼写（中文候选不会进入答案）
         </p>
       )}
 
