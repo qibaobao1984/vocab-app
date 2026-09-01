@@ -1,7 +1,7 @@
 import { db } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
 import { useAuth } from '../store/useAuth'
-import { createNewCard, statusForReviewed } from './sm2'
+import { createNewCard, statusForReviewed, DAY_MS, MAX_INTERVAL, MAX_EASE } from './sm2'
 import type { WordEntry, WordMeaning, SrsCard, ReviewLog, SessionStat, Category, Mistake, QuizSession, WrongRecord, DailySettings, StudyPlan } from '../types'
 
 interface CategoryRow {
@@ -770,6 +770,40 @@ export async function repoRecomputeCardStatuses(): Promise<number> {
       while (i < remotePatches.length) {
         const idx = i++
         const { error } = await supabase!.from('cards').update({ status: remotePatches[idx].status }).eq('id', remotePatches[idx].id)
+        if (error) throw new Error(error.message)
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(8, remotePatches.length) }, worker))
+  } else {
+    await db.cards.bulkPut(updated)
+  }
+  return updated.length
+}
+
+export async function repoClampCardIntervals(): Promise<number> {
+  const cards = await repoCards()
+  const updated: SrsCard[] = []
+  const remotePatches: { id: number; patch: Record<string, unknown> }[] = []
+  for (const c of cards) {
+    if (c.id === undefined) continue
+    const patch: Partial<SrsCard> = {}
+    if (c.easeFactor > MAX_EASE) patch.easeFactor = MAX_EASE
+    else if (c.easeFactor < 1.3) patch.easeFactor = 1.3
+    if (c.interval > MAX_INTERVAL) {
+      patch.interval = MAX_INTERVAL
+      patch.dueDate = Date.now() + MAX_INTERVAL * DAY_MS
+    }
+    if (patch.easeFactor === undefined && patch.interval === undefined) continue
+    updated.push({ ...c, ...patch })
+    remotePatches.push({ id: c.id, patch: cardPatchRow(patch) })
+  }
+  if (updated.length === 0) return 0
+  if (remoteActive()) {
+    let i = 0
+    const worker = async () => {
+      while (i < remotePatches.length) {
+        const idx = i++
+        const { error } = await supabase!.from('cards').update(remotePatches[idx].patch).eq('id', remotePatches[idx].id)
         if (error) throw new Error(error.message)
       }
     }

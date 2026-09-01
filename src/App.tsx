@@ -4,7 +4,7 @@ import { useAuth } from './store/useAuth'
 import { useDailyGoal, localYMD } from './store/dailyGoalStore'
 import { useStudyPlan } from './store/studyPlanStore'
 import { supabaseEnabled } from './lib/supabase'
-import { repoCreateMissingCards, repoRecomputeCardStatuses } from './lib/repo'
+import { repoCreateMissingCards, repoRecomputeCardStatuses, repoClampCardIntervals } from './lib/repo'
 import { Nav } from './components/Nav'
 import { AuthView } from './components/AuthView'
 import { UploadView } from './components/UploadView'
@@ -34,9 +34,9 @@ function App() {
   useEffect(() => {
     if (initializing) return
     if (supabaseEnabled && !userId) return
-    Promise.all([repoCreateMissingCards(), repoRecomputeCardStatuses()])
-      .then(([missing, recomp]) => {
-        if (missing > 0 || recomp > 0) useStore.getState().refresh()
+    Promise.all([repoCreateMissingCards(), repoRecomputeCardStatuses(), repoClampCardIntervals()])
+      .then(([missing, recomp, clamped]) => {
+        if (missing > 0 || recomp > 0 || clamped > 0) useStore.getState().refresh()
       })
       .catch((e) => {
         console.warn('[app] 初始化失败：', e)

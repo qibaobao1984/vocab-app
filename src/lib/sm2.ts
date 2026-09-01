@@ -19,7 +19,10 @@ export interface Sm2Result {
   status: CardStatus
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
+export const DAY_MS = 24 * 60 * 60 * 1000
+export const MAX_INTERVAL = 365
+export const MAX_EASE = 3.0
+const MIN_EASE = 1.3
 
 export function statusForReviewed(repetitions: number, interval: number): CardStatus {
   if (repetitions === 0) return 'learning'
@@ -31,6 +34,9 @@ export function sm2(card: SrsCard, quality: number): Sm2Result {
   const q = Math.max(0, Math.min(5, quality))
   const wasCorrect = q >= 3
   let { easeFactor, repetitions } = card
+
+  if (easeFactor > MAX_EASE) easeFactor = MAX_EASE
+  if (easeFactor < MIN_EASE) easeFactor = MIN_EASE
 
   if (wasCorrect) {
     repetitions += 1
@@ -50,9 +56,17 @@ export function sm2(card: SrsCard, quality: number): Sm2Result {
   }
 
   easeFactor = easeFactor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
-  if (easeFactor < 1.3) easeFactor = 1.3
+  if (easeFactor < MIN_EASE) easeFactor = MIN_EASE
+  if (easeFactor > MAX_EASE) easeFactor = MAX_EASE
 
-  const dueDate = Date.now() + interval * DAY_MS
+  if (interval > MAX_INTERVAL) interval = MAX_INTERVAL
+
+  let fuzz = 0
+  if (interval >= 3) {
+    const range = Math.max(1, Math.round(interval * 0.1))
+    fuzz = Math.round((Math.random() * 2 - 1) * range)
+  }
+  const dueDate = Date.now() + (interval + fuzz) * DAY_MS
 
   const status = statusForReviewed(repetitions, interval)
 
