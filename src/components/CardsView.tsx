@@ -3,7 +3,7 @@ import { repoWords, repoCards, repoCategories } from '../lib/repo'
 import { useStore } from '../store/useStore'
 import { speak } from '../lib/tts'
 import { formatDueLabel, QUALITY_MARK } from '../lib/sm2'
-import { getDescendantIds, getCategoryNamePath } from '../lib/tree'
+import { getCategoryNamePath } from '../lib/tree'
 import { PasswordDialog } from './PasswordDialog'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditWordDialog } from './EditWordDialog'
@@ -106,12 +106,8 @@ export function CardsView() {
 
   const subtreeIds = useMemo(() => {
     if (selectedCats.size === 0) return null
-    const ids = new Set<number>()
-    selectedCats.forEach((id) => {
-      getDescendantIds(categories, id).forEach((x) => ids.add(x))
-    })
-    return ids
-  }, [categories, selectedCats])
+    return selectedCats
+  }, [selectedCats])
 
   const filtered = useMemo(() => {
     let result = items

@@ -5,7 +5,7 @@ import { useDailyGoal } from '../store/dailyGoalStore'
 import { useStudyPlan } from '../store/studyPlanStore'
 import { speak } from '../lib/tts'
 import { QUALITY, formatDueLabel, type Quality } from '../lib/sm2'
-import { getDescendantIds, getCategoryNamePath } from '../lib/tree'
+import { getCategoryNamePath } from '../lib/tree'
 import { wordPhonetic } from '../lib/word'
 import { CategoryMultiSelect } from './CategoryMultiSelect'
 import { Page } from './Page'
@@ -43,13 +43,11 @@ export function ReviewView() {
   const [started, setStarted] = useState(false)
   const [readingWords, setReadingWords] = useState<WordEntry[] | null>(null)
 
-  const loadQueue = useCallback(async (sel: Set<number>, cats: Category[]) => {
+  const loadQueue = useCallback(async (sel: Set<number>) => {
     setLoading(true)
     const now = Date.now()
-    const ids = new Set<number>()
-    sel.forEach((id) => getDescendantIds(cats, id).forEach((x) => ids.add(x)))
     const [all, allCards] = await Promise.all([repoWords(), repoCards()])
-    const words = ids.size > 0 ? all.filter((w) => w.meanings.some((m) => ids.has(m.categoryId))) : []
+    const words = sel.size > 0 ? all.filter((w) => w.meanings.some((m) => sel.has(m.categoryId))) : []
     const wordMap = new Map(words.map((w) => [w.id!, w]))
     const dueCards = allCards
       .filter((c) => c.dueDate <= now && wordMap.has(c.wordId))
@@ -68,12 +66,10 @@ export function ReviewView() {
 
   const startReading = useCallback(async () => {
     const all = await repoWords()
-    const ids = new Set<number>()
-    selectedCats.forEach((id) => getDescendantIds(categories, id).forEach((x) => ids.add(x)))
-    const words = ids.size > 0 ? all.filter((w) => w.meanings.some((m) => ids.has(m.categoryId))) : all
+    const words = selectedCats.size > 0 ? all.filter((w) => w.meanings.some((m) => selectedCats.has(m.categoryId))) : all
     if (words.length === 0) return
     setReadingWords(words)
-  }, [selectedCats, categories])
+  }, [selectedCats])
 
   useEffect(() => {
     repoCategories().then((cats) => {
@@ -84,7 +80,7 @@ export function ReviewView() {
         planIdRef.current = seed.planId
         setSelectedCats(sel)
         setStarted(true)
-        void loadQueue(sel, cats)
+        void loadQueue(sel)
         useStore.getState().clearReviewSeed()
       } else if (!catInitRef.current && cats.length > 0) {
         catInitRef.current = true
@@ -169,7 +165,7 @@ export function ReviewView() {
         <button
           onClick={() => {
             setStarted(true)
-            void loadQueue(selectedCats, categories)
+            void loadQueue(selectedCats)
           }}
           disabled={selectedCats.size === 0 || loading}
           className={selectedCats.size === 0 ? 'btn-primary w-full opacity-50 cursor-not-allowed' : 'btn-primary w-full'}

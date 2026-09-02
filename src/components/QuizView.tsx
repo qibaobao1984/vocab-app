@@ -3,7 +3,6 @@ import { repoWords, repoWordCount, repoCategories, repoSaveQuizProgress, repoLoa
 import { useStore } from '../store/useStore'
 import { useDailyGoal } from '../store/dailyGoalStore'
 import { speak, speakGrade } from '../lib/tts'
-import { getDescendantIds } from '../lib/tree'
 import { wordDisplayMeaning, wordPhonetic, wordFirstCategoryId, wordHasMeaning } from '../lib/word'
 import { CategoryMultiSelect } from './CategoryMultiSelect'
 import { Page } from './Page'
@@ -221,7 +220,7 @@ export function QuizView({ active }: { active: boolean }) {
   const [quizMode, setQuizMode] = useState<'choice' | 'spell' | 'posconv' | 'mixed'>('choice')
   const [quizLabel, setQuizLabel] = useState<string>('全部类别')
   const [quizRetest, setQuizRetest] = useState(false)
-  const [allWords, setAllWords] = useState<WordEntry[]>([])
+  const [wordPool, setWordPool] = useState<WordEntry[]>([])
   const [dbWordCount, setDbWordCount] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCats, setSelectedCats] = useState<Set<number>>(new Set())
@@ -242,9 +241,10 @@ export function QuizView({ active }: { active: boolean }) {
 
   useEffect(() => {
     let active = true
-    Promise.all([repoCategories(), repoWordCount()]).then(([cats, count]) => {
+    Promise.all([repoCategories(), repoWordCount(), repoWords()]).then(([cats, count, all]) => {
       if (!active) return
       setCategories(cats)
+      setWordPool(all)
       if (!catInitRef.current && cats.length > 0) {
         catInitRef.current = true
         setSelectedCats(new Set(cats.map((c) => c.id!)))
@@ -261,24 +261,12 @@ export function QuizView({ active }: { active: boolean }) {
     setPage(1)
   }, [mode])
 
-  useEffect(() => {
-    const load = async () => {
-      let words: WordEntry[]
-      if (selectedCats.size === 0) {
-        words = []
-      } else {
-        const ids = new Set<number>()
-        selectedCats.forEach((id) => {
-          getDescendantIds(categories, id).forEach((x) => ids.add(x))
-        })
-        const all = await repoWords()
-        words = all.filter((w) => w.meanings.some((m) => ids.has(m.categoryId)))
-      }
-      const withMeaning = words.filter((x) => wordHasMeaning(x))
-      setAllWords(withMeaning.length >= OPTION_COUNT ? withMeaning : words)
-    }
-    load()
-  }, [refreshKey, selectedCats, categories])
+  const allWords = useMemo(() => {
+    if (selectedCats.size === 0) return []
+    const words = wordPool.filter((w) => w.meanings.some((m) => selectedCats.has(m.categoryId)))
+    const withMeaning = words.filter((x) => wordHasMeaning(x))
+    return withMeaning.length >= OPTION_COUNT ? withMeaning : words
+  }, [wordPool, selectedCats])
 
   const quizCategoryLabel = useMemo(() => {
     if (selectedCats.size === 0) return '无类别'
@@ -313,7 +301,7 @@ export function QuizView({ active }: { active: boolean }) {
         if (!pool || pool.length === 0) return
         const modes = mixedModes ?? []
         const pairs = shuffle(pool.map((w, i) => ({ w, m: modes[i] ?? ('choice' as const) })))
-        const distractors = allWords.length > 0 ? allWords : await repoWords()
+        const distractors = allWords.length > 0 ? allWords : wordPool
         const qs: QuizQuestion[] = []
         for (const p of pairs) {
           if (p.m === 'spell') {
@@ -332,7 +320,7 @@ export function QuizView({ active }: { active: boolean }) {
       let source = pool ?? allWords
       if (qm === 'posconv') source = eligibleWords(source)
       if (source.length === 0) return
-      const distractors = allWords.length > 0 ? allWords : await repoWords()
+      const distractors = allWords.length > 0 ? allWords : wordPool
       const shuffled = shuffle(source)
       const size = pool ? shuffled.length : (quizSize === SIZE_ALL ? shuffled.length : Math.min(quizSize, shuffled.length))
       let picked = shuffled.slice(0, size)
@@ -350,7 +338,7 @@ export function QuizView({ active }: { active: boolean }) {
       }
       begin(qs)
     },
-    [allWords, quizSize, quizCategoryLabel, difficulty],
+    [allWords, wordPool, quizSize, quizCategoryLabel, difficulty],
   )
 
   const next = useCallback(() => {

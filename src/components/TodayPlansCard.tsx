@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { repoWords, repoCategories } from '../lib/repo'
+import { repoWords } from '../lib/repo'
 import { useStore } from '../store/useStore'
 import { useStudyPlan } from '../store/studyPlanStore'
-import { getDescendantIds } from '../lib/tree'
 import { StudyPlanManager } from './StudyPlanManager'
 import clsx from 'clsx'
-import type { WordEntry, Category, StudyPlan } from '../types'
+import type { WordEntry, StudyPlan } from '../types'
 
 export function TodayPlansCard() {
   const plans = useStudyPlan((s) => s.plans)
@@ -13,24 +12,21 @@ export function TodayPlansCard() {
   const isDoneToday = useStudyPlan((s) => s.isDoneToday)
   const launchReviewFromPlan = useStore((s) => s.launchReviewFromPlan)
   const [words, setWords] = useState<WordEntry[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
   const [showMgr, setShowMgr] = useState(false)
 
   useEffect(() => {
     if (plans.length === 0) return
-    void Promise.all([repoWords(), repoCategories()]).then(([w, c]) => {
+    void repoWords().then((w) => {
       setWords(w)
-      setCategories(c)
     })
   }, [plans])
 
   const countFor = useMemo(() => {
     return (p: StudyPlan) => {
-      const ids = new Set<number>()
-      p.categoryIds.forEach((id) => getDescendantIds(categories, id).forEach((x) => ids.add(x)))
+      const ids = new Set<number>(p.categoryIds)
       return words.filter((w) => w.meanings.some((m) => ids.has(m.categoryId))).length
     }
-  }, [words, categories])
+  }, [words])
 
   const today = new Date().getDay()
   const todays = plans.filter((p) => p.enabled && p.daysOfWeek.includes(today))

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { repoMistakes, repoCategories, repoWordsByIds, repoCardsByWordIds } from '../lib/repo'
 import { useStore } from '../store/useStore'
-import { getDescendantIds, getCategoryNamePath, getTreeNodes } from '../lib/tree'
+import { getCategoryNamePath, getTreeNodes } from '../lib/tree'
 import { wordDisplayMeaning, wordPhonetic } from '../lib/word'
 import { CategoryMultiSelect } from './CategoryMultiSelect'
 import { Page } from './Page'
@@ -113,11 +113,7 @@ export function MistakesView() {
   const historyMistakes = useMemo(() => mistakes.filter((m) => m.resolved), [mistakes])
   const activeMistakes = tab === 'current' ? currentMistakes : historyMistakes
 
-  const subtreeIds = useMemo(() => {
-    const ids = new Set<number>()
-    selectedCats.forEach((id) => getDescendantIds(categories, id).forEach((x) => ids.add(x)))
-    return ids
-  }, [categories, selectedCats])
+  const subtreeIds = useMemo(() => selectedCats, [selectedCats])
 
   const filtered = useMemo(() => {
     if (selectedCats.size === 0) return []
