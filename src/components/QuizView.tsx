@@ -1099,68 +1099,50 @@ export function QuizView({ active }: { active: boolean }) {
       </div>
 
       <form onSubmit={handleSpellSubmit} className="flex gap-2" autoComplete="off">
-        <div className="relative flex-1">
-          <div
-            className={clsx(
-              'rounded-xl border-2 px-4 py-3 text-sm min-h-[44px] flex items-center transition-colors',
-              imeComposing
-                ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
-                : spellFocused
-                  ? 'border-brand-500 bg-white dark:bg-gray-800'
-                  : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800',
-            )}
-          >
-            <span className="flex-1 min-w-0 truncate">
-              {spellFocused && !feedback && !spellInput && (
-                <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-gray-500 mr-0.5 animate-pulse align-middle" />
-              )}
-              {spellInput ? (
-                <span className="whitespace-pre text-gray-900 dark:text-gray-50">{spellInput}</span>
-              ) : (
-                <span className="text-gray-400">请切换到英文输入法后拼写...</span>
-              )}
-              {spellFocused && !feedback && spellInput && (
-                <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-gray-500 ml-0.5 animate-pulse align-middle" />
-              )}
-            </span>
-          </div>
-          <input
-            ref={spellInputRef}
-            type="text"
-            value={spellInput}
-            onBeforeInput={(e) => {
-              const native = e.nativeEvent as unknown as { inputType?: string; data?: string | null }
-              if (native.inputType?.startsWith('insert') && native.data && native.data.length > 1) {
-                e.preventDefault()
-              }
-            }}
-            onChange={(e) => {
-              setSpellInput(e.target.value.replace(/[^\x20-\x7E]/g, ''))
-              setSpellConfirm(false)
-            }}
-            onCompositionStart={(e) => {
-              setImeComposing(true)
-              e.currentTarget.blur()
-            }}
-            onCompositionEnd={(e) => {
-              setSpellInput(e.currentTarget.value.replace(/[^\x20-\x7E]/g, ''))
-              setSpellConfirm(false)
-            }}
-            onFocus={() => { setSpellFocused(true); setImeComposing(false) }}
-            onBlur={() => setSpellFocused(false)}
-            disabled={!!feedback}
-            autoFocus
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            inputMode="text"
-            name="spell-answer-quiz"
-            aria-label="拼写输入"
-            lang="en"
-            className="absolute inset-0 w-full h-full opacity-0"
-          />
-        </div>
+        <input
+          ref={spellInputRef}
+          type="text"
+          value={spellInput}
+          onBeforeInput={(e) => {
+            const native = e.nativeEvent as unknown as { inputType?: string; data?: string | null }
+            if (native.inputType?.startsWith('insert') && native.data && native.data.length > 1) {
+              e.preventDefault()
+            }
+          }}
+          onChange={(e) => {
+            setSpellInput(e.target.value.replace(/[^\x20-\x7E]/g, ''))
+            setSpellConfirm(false)
+          }}
+          onCompositionStart={(e) => {
+            setImeComposing(true)
+            e.currentTarget.blur()
+          }}
+          onCompositionEnd={(e) => {
+            setSpellInput(e.currentTarget.value.replace(/[^\x20-\x7E]/g, ''))
+            setSpellConfirm(false)
+          }}
+          onFocus={() => { setSpellFocused(true); setImeComposing(false) }}
+          onBlur={() => setSpellFocused(false)}
+          disabled={!!feedback}
+          autoFocus
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          inputMode="text"
+          name="spell-answer-quiz"
+          aria-label="拼写输入"
+          lang="en"
+          placeholder="请切换到英文输入法后拼写..."
+          className={clsx(
+            'flex-1 rounded-xl border-2 px-4 py-3 text-sm min-h-[44px] transition-colors outline-none text-gray-900 dark:text-gray-50',
+            imeComposing
+              ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
+              : spellFocused
+                ? 'border-brand-500 bg-white dark:bg-gray-800'
+                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800',
+          )}
+        />
         {!feedback ? (
           <>
             <button
