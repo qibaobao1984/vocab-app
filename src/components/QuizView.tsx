@@ -283,8 +283,8 @@ export function QuizView({ active }: { active: boolean }) {
       const begin = (qs: QuizQuestion[]) => {
         setQuestions(qs)
         setQuizMode(qm)
-        setQuizLabel(pool ? '错题重默' : quizCategoryLabel)
-        setQuizRetest(retest ?? !!pool)
+        setQuizLabel(retest ? '错题重默' : pool ? '卡片选词' : quizCategoryLabel)
+        setQuizRetest(!!retest)
         setMode(qm)
         setIndex(0)
         setSelected(null)
@@ -982,9 +982,9 @@ export function QuizView({ active }: { active: boolean }) {
             <button
               onClick={() => {
                 if (quizMode === 'mixed') {
-                  void startQuiz('mixed', wrongItems.map((w) => w.word), wrongItems.map((w) => w.mode))
+                  void startQuiz('mixed', wrongItems.map((w) => w.word), wrongItems.map((w) => w.mode), true)
                 } else {
-                  void startQuiz(quizMode, wrongItems.map((w) => w.word))
+                  void startQuiz(quizMode, wrongItems.map((w) => w.word), undefined, true)
                 }
               }}
               className="btn-primary w-full"
