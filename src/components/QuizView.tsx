@@ -1079,7 +1079,7 @@ export function QuizView({ active }: { active: boolean }) {
       <ProgressBar value={progress} index={index} total={questions.length} correct={stats.correct} />
       <TimerBar timeLeft={timeLeft} limit={SPELL_TIME} />
       <div className="card p-6 mb-4 text-center">
-        <p className="text-xs text-gray-400 mb-2">请拼写下面的单词</p>
+        <p className="text-xs text-gray-400 mb-2">请拼写下面的{sq.word.text.trim().split(/\s+/).length > 1 ? '词组' : '单词'}</p>
         <p className="text-lg text-gray-700 dark:text-gray-200">{wordDisplayMeaning(sq.word)}</p>
         {wordPhonetic(sq.word) && (
           <p className="text-xs text-gray-400 mt-1">/{wordPhonetic(sq.word)}/</p>
