@@ -116,7 +116,7 @@ export function MistakesView() {
   const subtreeIds = useMemo(() => selectedCats, [selectedCats])
 
   const filtered = useMemo(() => {
-    if (selectedCats.size === 0) return []
+    if (selectedCats.size === 0) return activeMistakes
     return activeMistakes.filter((m) => subtreeIds.has(m.categoryId))
   }, [activeMistakes, subtreeIds, selectedCats])
 
@@ -245,9 +245,7 @@ export function MistakesView() {
           <div className="space-y-6">
             {filtered.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-10">
-                {selectedCats.size === 0
-                  ? '请在上方选择类别后查看错题'
-                  : tab === 'current' ? '当前没有错题，继续保持！' : '所选类别下暂无历史错题'}
+                {tab === 'current' ? '当前没有错题，继续保持！' : '所选类别下暂无历史错题'}
               </p>
             )}
             {pagedGroups.map(([categoryId, items]) => {
