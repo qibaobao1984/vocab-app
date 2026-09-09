@@ -40,6 +40,7 @@ export function CardsView() {
   const deleteWord = useStore((s) => s.deleteWord)
   const deleteWords = useStore((s) => s.deleteWords)
   const deleteWordsInCategories = useStore((s) => s.deleteWordsInCategories)
+  const deleteWordsMeaningsInCategories = useStore((s) => s.deleteWordsMeaningsInCategories)
   const deleteAllWords = useStore((s) => s.deleteAllWords)
   const updateWord = useStore((s) => s.updateWord)
   const setStarred = useStore((s) => s.setStarred)
@@ -95,7 +96,7 @@ export function CardsView() {
       setItems(joined)
       if (!catInitRef.current && cats.length > 0) {
         catInitRef.current = true
-        setSelectedCats(new Set(cats.map((c) => c.id!)))
+        setSelectedCats(new Set())
       }
       setLoading(false)
     })()
@@ -186,7 +187,7 @@ export function CardsView() {
     setQualityFilter('all')
     setStarFilter('all')
     setSortMode('default')
-    setSelectedCats(new Set(categories.map((c) => c.id!)))
+    setSelectedCats(new Set())
     setFlipped(new Set())
   }
 
@@ -266,9 +267,18 @@ export function CardsView() {
     if (!deleteTarget) return
     try {
       if (deleteTarget.kind === 'word') {
-        await deleteWord(deleteTarget.word.id!)
+        if (subtreeIds && subtreeIds.size > 0) {
+          await deleteWordsMeaningsInCategories([deleteTarget.word.id!], [...subtreeIds])
+        } else {
+          await deleteWord(deleteTarget.word.id!)
+        }
       } else if (deleteTarget.kind === 'words') {
-        await deleteWords(deleteTarget.words.map((w) => w.id!))
+        const ids = deleteTarget.words.map((w) => w.id!)
+        if (subtreeIds && subtreeIds.size > 0) {
+          await deleteWordsMeaningsInCategories(ids, [...subtreeIds])
+        } else {
+          await deleteWords(ids)
+        }
       } else if (deleteTarget.kind === 'category') {
         await deleteWordsInCategories(deleteTarget.categoryIds)
         catInitRef.current = false
@@ -301,23 +311,41 @@ export function CardsView() {
 
   const dialogProps = deleteTarget
     ? deleteTarget.kind === 'word'
-      ? {
-          title: '删除单词',
-          message: (
-            <>
-              确定删除单词 <b className="text-gray-700 dark:text-gray-200">{deleteTarget.word.text}</b> 吗？该单词的卡片和学习记录将一并删除，此操作不可撤销。
-            </>
-          ),
-        }
-      : deleteTarget.kind === 'words'
+      ? subtreeIds && subtreeIds.size > 0
         ? {
-            title: '删除选中单词',
+            title: '从所选类别删除',
             message: (
               <>
-                确定删除选中的 <b className="text-red-600">{deleteTarget.words.length}</b> 个单词吗？这些单词的卡片、学习记录、错题与考试记录将一并删除，此操作不可撤销。
+                确定删除单词 <b className="text-gray-700 dark:text-gray-200">{deleteTarget.word.text}</b> 在所选类别（{selectedCatLabel}）下的释义吗？其他类别的释义将保留；若该单词无其他释义，将整体删除（含卡片与记录），此操作不可撤销。
               </>
             ),
           }
+        : {
+            title: '删除单词',
+            message: (
+              <>
+                确定删除单词 <b className="text-gray-700 dark:text-gray-200">{deleteTarget.word.text}</b> 吗？该单词的卡片和学习记录将一并删除，此操作不可撤销。
+              </>
+            ),
+          }
+      : deleteTarget.kind === 'words'
+        ? subtreeIds && subtreeIds.size > 0
+          ? {
+              title: '从所选类别删除',
+              message: (
+                <>
+                  将删除选中的 <b className="text-red-600">{deleteTarget.words.length}</b> 个单词在所选类别（{selectedCatLabel}）下的释义，其他类别的释义将保留；若无其他释义的单词将整体删除（含卡片与记录），此操作不可撤销。
+                </>
+              ),
+            }
+          : {
+              title: '删除选中单词',
+              message: (
+                <>
+                  确定删除选中的 <b className="text-red-600">{deleteTarget.words.length}</b> 个单词吗？这些单词的卡片、学习记录、错题与考试记录将一并删除，此操作不可撤销。
+                </>
+              ),
+            }
         : deleteTarget.kind === 'category'
           ? {
               title: `清空所选类别`,

@@ -247,7 +247,7 @@ export function QuizView({ active }: { active: boolean }) {
       setWordPool(all)
       if (!catInitRef.current && cats.length > 0) {
         catInitRef.current = true
-        setSelectedCats(new Set(cats.map((c) => c.id!)))
+        setSelectedCats(new Set())
       }
       setDbWordCount(count)
       setLoading(false)

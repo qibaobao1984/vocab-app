@@ -87,7 +87,7 @@ export function MistakesView() {
       setCategories(cats)
       if (!catInitRef.current && cats.length > 0) {
         catInitRef.current = true
-        setSelectedCats(new Set(cats.map((c) => c.id!)))
+        setSelectedCats(new Set())
       }
       setLoading(false)
       const wordIds = [...new Set(all.map((m) => m.wordId))]
@@ -245,7 +245,9 @@ export function MistakesView() {
           <div className="space-y-6">
             {filtered.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-10">
-                {tab === 'current' ? '当前没有错题，继续保持！' : '所选类别下暂无历史错题'}
+                {selectedCats.size === 0
+                  ? '请在上方选择类别后查看错题'
+                  : tab === 'current' ? '当前没有错题，继续保持！' : '所选类别下暂无历史错题'}
               </p>
             )}
             {pagedGroups.map(([categoryId, items]) => {

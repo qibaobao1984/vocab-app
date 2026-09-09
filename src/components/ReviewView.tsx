@@ -84,7 +84,7 @@ export function ReviewView() {
         useStore.getState().clearReviewSeed()
       } else if (!catInitRef.current && cats.length > 0) {
         catInitRef.current = true
-        setSelectedCats(new Set(cats.map((c) => c.id!)))
+        setSelectedCats(new Set())
       }
     })
   }, [refreshKey, loadQueue])

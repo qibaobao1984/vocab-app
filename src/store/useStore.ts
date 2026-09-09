@@ -38,6 +38,7 @@ interface StoreState {
   deleteWords: (wordIds: number[]) => Promise<void>
   deleteCategoryWords: (categoryId: number) => Promise<number>
   deleteWordsInCategories: (categoryIds: number[]) => Promise<number>
+  deleteWordsMeaningsInCategories: (wordIds: number[], categoryIds: number[]) => Promise<number>
   deleteAllWords: () => Promise<number>
   reviewCard: (cardId: number, wordId: number, quality: Quality) => Promise<void>
   markQuizResult: (wordId: number, correct: boolean, mode: 'choice' | 'spell' | 'posconv') => Promise<void>
@@ -182,6 +183,38 @@ export const useStore = create<StoreState>((set, get) => ({
       const remaining = w.meanings.filter((m) => !idSet.has(m.categoryId))
       const removed = w.meanings.length - remaining.length
       if (removed === 0) continue
+      count += remaining.length === 0 ? 1 : 0
+      if (remaining.length === 0) {
+        toDelete.push(w.id!)
+      } else {
+        toUpdate.push({ id: w.id!, meanings: remaining })
+      }
+    }
+    for (const u of toUpdate) {
+      await repo.repoUpdateWordMeanings(u.id, u.meanings)
+    }
+    if (toDelete.length > 0) {
+      await repo.repoDeleteWordsCascade(toDelete)
+    }
+    get().refresh()
+    return count
+  },
+
+  deleteWordsMeaningsInCategories: async (wordIds, categoryIds) => {
+    let count = 0
+    const cats = await repo.repoCategories()
+    const idSet = new Set<number>()
+    for (const cid of categoryIds) {
+      getDescendantIds(cats, cid).forEach((x) => idSet.add(x))
+    }
+    const wordIdSet = new Set(wordIds)
+    const words = await repo.repoWords()
+    const toDelete: number[] = []
+    const toUpdate: { id: number; meanings: WordMeaning[] }[] = []
+    for (const w of words) {
+      if (!wordIdSet.has(w.id!)) continue
+      const remaining = w.meanings.filter((m) => !idSet.has(m.categoryId))
+      if (remaining.length === w.meanings.length) continue
       count += remaining.length === 0 ? 1 : 0
       if (remaining.length === 0) {
         toDelete.push(w.id!)
