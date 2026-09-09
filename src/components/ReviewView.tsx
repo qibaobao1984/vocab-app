@@ -162,23 +162,25 @@ export function ReviewView() {
           />
           <p className="text-xs text-gray-400 mt-2">选择父类别将包含其所有子类别的单词</p>
         </div>
-        <button
-          onClick={() => {
-            setStarted(true)
-            void loadQueue(selectedCats)
-          }}
-          disabled={selectedCats.size === 0 || loading}
-          className={selectedCats.size === 0 ? 'btn-primary w-full opacity-50 cursor-not-allowed' : 'btn-primary w-full'}
-        >
-          开始复习
-        </button>
-        <button
-          onClick={() => void startReading()}
-          disabled={selectedCats.size === 0 || loading}
-          className={selectedCats.size === 0 ? 'btn-secondary w-full mt-2 opacity-50 cursor-not-allowed' : 'btn-secondary w-full mt-2'}
-        >
-          开始阅读
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setStarted(true)
+              void loadQueue(selectedCats)
+            }}
+            disabled={selectedCats.size === 0 || loading}
+            className="btn bg-white text-brand-600 border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:bg-gray-800 dark:text-brand-400 dark:border-brand-700 dark:hover:bg-brand-600 dark:hover:text-white dark:hover:border-brand-600 flex-1"
+          >
+            开始复习
+          </button>
+          <button
+            onClick={() => void startReading()}
+            disabled={selectedCats.size === 0 || loading}
+            className="btn bg-white text-brand-600 border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:bg-gray-800 dark:text-brand-400 dark:border-brand-700 dark:hover:bg-brand-600 dark:hover:text-white dark:hover:border-brand-600 flex-1"
+          >
+            开始阅读
+          </button>
+        </div>
       </Page>
     )
   }

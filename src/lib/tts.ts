@@ -1,4 +1,5 @@
 let cachedVoices: SpeechSynthesisVoice[] = []
+let currentAudio: HTMLAudioElement | null = null
 
 function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   return new Promise((resolve) => {
@@ -53,13 +54,20 @@ function pickZhCnNeuralVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoi
 function playAudio(url: string): Promise<boolean> {
   return new Promise((resolve) => {
     let done = false
+    let audio: HTMLAudioElement | null = null
     const finish = (ok: boolean) => {
       if (done) return
       done = true
+      if (audio && currentAudio === audio) currentAudio = null
       resolve(ok)
     }
     try {
-      const audio = new Audio(url)
+      if (currentAudio) {
+        try { currentAudio.pause() } catch { /* ignore */ }
+        currentAudio = null
+      }
+      audio = new Audio(url)
+      currentAudio = audio
       audio.onended = () => finish(true)
       audio.onerror = () => finish(false)
       audio.play().then(() => { /* playing */ }).catch(() => finish(false))
@@ -101,8 +109,13 @@ export async function speak(text: string, lang = 'en-US', rate = 0.9): Promise<v
 }
 
 export function stopSpeaking() {
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    window.speechSynthesis.cancel()
+  if (typeof window !== 'undefined') {
+    if (window.speechSynthesis) window.speechSynthesis.cancel()
+    if (currentAudio) {
+      try { currentAudio.pause() } catch { /* ignore */ }
+      try { (currentAudio as HTMLAudioElement & { src?: string }).src = '' } catch { /* ignore */ }
+      currentAudio = null
+    }
   }
 }
 

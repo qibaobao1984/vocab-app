@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { repoMarkLearnedToday } from '../lib/repo'
-import { speak } from '../lib/tts'
+import { speak, stopSpeaking } from '../lib/tts'
 import { getCategoryNamePath } from '../lib/tree'
 import { wordPhonetic } from '../lib/word'
 import clsx from 'clsx'
@@ -124,6 +124,11 @@ export function ReadingMode({ words, categories, onExit }: ReadingModeProps) {
     if (finished) void repoMarkLearnedToday()
   }, [finished])
 
+  // stop any pending speech on unmount
+  useEffect(() => {
+    return () => stopSpeaking()
+  }, [])
+
   // persist autoSpeak preference
   useEffect(() => {
     try {
@@ -133,9 +138,13 @@ export function ReadingMode({ words, categories, onExit }: ReadingModeProps) {
     }
   }, [autoSpeak])
 
-  // auto pronounce when the word face is shown
+  // auto pronounce when the word (English) face is shown; cancel any pending audio when flipping to Chinese or finishing
   useEffect(() => {
-    if (finished || flipped || !autoSpeak || !word) return
+    if (!autoSpeak || !word) return
+    if (finished || flipped) {
+      stopSpeaking()
+      return
+    }
     speak(word.text)
   }, [index, flipped, autoSpeak, finished, word])
 
@@ -187,6 +196,12 @@ export function ReadingMode({ words, categories, onExit }: ReadingModeProps) {
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
         handlePrev()
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (!stateRef.current.finished) setFlipped(true)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (!stateRef.current.finished) setFlipped(false)
       } else if (e.key === ' ') {
         e.preventDefault()
         setPlaying((p) => !p)
@@ -252,7 +267,9 @@ export function ReadingMode({ words, categories, onExit }: ReadingModeProps) {
             </svg>
           </button>
           {showSettings && (
-            <div className="absolute left-0 top-11 z-10 card p-3 w-56 animate-slide-up">
+            <>
+            <div className="fixed inset-0 z-10" onClick={() => setShowSettings(false)} />
+            <div className="absolute left-0 top-11 z-20 card p-3 w-56 animate-slide-up">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">翻面间隔</p>
               <div className="flex gap-1 mb-2">
                 {PRESETS.map((p) => (
@@ -308,6 +325,7 @@ export function ReadingMode({ words, categories, onExit }: ReadingModeProps) {
                 </button>
               </div>
             </div>
+            </>
           )}
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
