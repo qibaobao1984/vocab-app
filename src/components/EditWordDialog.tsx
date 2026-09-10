@@ -73,7 +73,7 @@ export function EditWordDialog({ word, categories, onSave, onClose }: EditWordDi
           </div>
 
           <div className="space-y-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400">释义（按类别）</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">释义（按词库）</p>
             {meanings.map((m, i) => {
               const path = getCategoryNamePath(categories, m.categoryId) || '未分类'
               return (
@@ -85,7 +85,7 @@ export function EditWordDialog({ word, categories, onSave, onClose }: EditWordDi
                     <button
                       onClick={() => removeMeaning(i)}
                       className="text-xs text-red-500 hover:text-red-600"
-                      title="删除该类别释义"
+                      title="删除该词库释义"
                     >
                       移除
                     </button>
@@ -115,7 +115,7 @@ export function EditWordDialog({ word, categories, onSave, onClose }: EditWordDi
               )
             })}
             {meanings.length === 0 && (
-              <p className="text-xs text-amber-500 text-center py-2">该单词已无任何类别释义，保存将删除此单词</p>
+              <p className="text-xs text-amber-500 text-center py-2">该单词已无任何词库释义，保存将删除此单词</p>
             )}
           </div>
         </div>

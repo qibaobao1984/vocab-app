@@ -211,7 +211,6 @@ export function MistakesView() {
             <p className="text-xs text-gray-400 mb-3 px-1">错过之后又答对的单词会归档到这里，记录与错误次数永久保留</p>
           )}
           <div className="card p-4 mb-4">
-            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">按类别筛选（可多选）</label>
             <CategoryMultiSelect
               categories={categories}
               selected={selectedCats}
@@ -249,7 +248,7 @@ export function MistakesView() {
           <div className="space-y-6">
             {filtered.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-10">
-                {tab === 'current' ? '当前没有错题，继续保持！' : '所选类别下暂无历史错题'}
+                {tab === 'current' ? '当前没有错题，继续保持！' : '所选词库下暂无历史错题'}
               </p>
             )}
             {pagedGroups.map(([categoryId, items]) => {

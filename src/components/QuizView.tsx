@@ -283,7 +283,7 @@ export function QuizView({ active }: { active: boolean }) {
   const spellTotal = questions.reduce((n, q) => n + ('options' in q ? 0 : 1), 0)
   const maxHints = Math.floor(spellTotal * 0.2)
   const [quizMode, setQuizMode] = useState<QuizMode>('choice')
-  const [quizLabel, setQuizLabel] = useState<string>('全部类别')
+  const [quizLabel, setQuizLabel] = useState<string>('词库')
   const [quizRetest, setQuizRetest] = useState(false)
   const [wordPool, setWordPool] = useState<WordEntry[]>([])
   const [dbWordCount, setDbWordCount] = useState(0)
@@ -341,13 +341,13 @@ export function QuizView({ active }: { active: boolean }) {
   }, [wordPool, selectedCats])
 
   const quizCategoryLabel = useMemo(() => {
-    if (selectedCats.size === 0) return '无类别'
-    if (selectedCats.size >= categories.length) return '全部类别'
+    if (selectedCats.size === 0) return '无词库'
+    if (selectedCats.size >= categories.length) return '词库'
     const names = categories
       .filter((c) => selectedCats.has(c.id!))
       .map((c) => c.name)
     if (names.length <= 3) return names.join('、')
-    return `${names.length}个类别`
+    return `${names.length}个词库`
   }, [selectedCats, categories])
 
   const polysemyGroupCount = useMemo(() => {
@@ -945,19 +945,15 @@ export function QuizView({ active }: { active: boolean }) {
     return (
       <Page title="开始测验" icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" description="选择题 / 拼写测试 / 一词多译 / 词性转换">
         <div className="card p-4 mb-6">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2 block">词库类别（可多选）</label>
           <CategoryMultiSelect
             categories={categories}
             selected={selectedCats}
             onChange={setSelectedCats}
             className="w-full"
           />
-          <p className="text-xs text-gray-400 mt-2">已选 {selectedCats.size} 类别，含子类共 {allWords.length} 词</p>
-          {noSelection && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">请至少选择一个类别</p>
-          )}
+          <p className="text-xs text-gray-400 mt-2">共 {allWords.length} 词</p>
           {noWordsInSelection && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">所选类别下暂无单词，请选择其他类别</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">所选词库下暂无单词，请选择其他词库</p>
           )}
         </div>
 

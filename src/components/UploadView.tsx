@@ -47,14 +47,14 @@ export function UploadView() {
       let name = newCatName.trim()
       if (!name && fallbackName) name = fallbackName
       if (!name) {
-        throw new Error('请输入新类别名称')
+        throw new Error('请输入新词库名称')
       }
       const parentId = newCatParent === 'none' ? null : Number(newCatParent)
       return await createCategory(name, parentId)
     }
     if (!selectedCat) {
       if (!fallbackName) {
-        throw new Error('请先选择或新建一个类别')
+        throw new Error('请先选择或新建一个词库')
       }
       return await createCategory(fallbackName, null)
     }
@@ -110,7 +110,7 @@ export function UploadView() {
   const createCategoryOnly = useCallback(async () => {
     const name = newCatName.trim()
     if (!name) {
-      useStore.setState({ error: '请输入新类别名称' })
+      useStore.setState({ error: '请输入新词库名称' })
       return
     }
     try {
@@ -151,7 +151,6 @@ export function UploadView() {
       </div>
 
       <div className="card p-4 mb-4">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2 block">词库类别</label>
         {creatingNew ? (
           <div className="space-y-2">
             <div className="flex gap-2">
@@ -162,24 +161,24 @@ export function UploadView() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') createCategoryOnly()
                 }}
-                placeholder="留空+多文件=各文件名作类别名"
+                placeholder="留空+多文件=各文件名作词库名"
                 autoFocus
                 className="flex-1 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <button onClick={() => setCreatingNew(false)} className="btn-ghost text-xs">取消</button>
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">父类别(可选，留空为顶级)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">归类到（可选）</label>
               <CategorySelect
                 categories={categories}
                 value={newCatParent}
                 onChange={setNewCatParent}
-                firstOption={{ value: 'none', label: '无（顶级类别）' }}
+                firstOption={{ value: 'none', label: '不选（新词库）' }}
                 className="w-full"
               />
             </div>
             <button onClick={createCategoryOnly} className="btn-secondary w-full text-xs">
-              仅创建类别（不导入单词）
+              仅创建词库（不导入单词）
             </button>
           </div>
         ) : (
@@ -188,21 +187,21 @@ export function UploadView() {
               categories={categories}
               value={selectedCat}
               onChange={setSelectedCat}
-              firstOption={{ value: '', label: '— 请选择类别 —' }}
+              firstOption={{ value: '', label: '— 请选择词库 —' }}
               className="flex-1"
             />
             <button onClick={() => setCreatingNew(true)} className="btn-secondary text-xs whitespace-nowrap">
-              + 新建类别
+              + 新建词库
             </button>
           </div>
         )}
         {categories.length === 0 && !creatingNew && (
           <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-            还没有类别，点击「新建类别」创建一个吧
+            还没有词库，点击「新建词库」创建一个吧
           </p>
         )}
         <p className="text-xs text-gray-400 mt-2">
-          支持多文件批量导入。新建类别时名字留空，每个文件会以文件名自动建类别
+          支持多文件批量导入。新建词库时名字留空，每个文件会以文件名自动建词库
         </p>
         <div className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 p-3 space-y-1">
           <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">格式要求</p>

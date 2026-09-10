@@ -158,7 +158,7 @@ export function StudyPlanManager({ open, onClose }: { open: boolean; onClose: ()
               </div>
 
               <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">复习类别（可多选，可跨类别）</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">复习词库（可多选，可跨词库）</label>
                 <CategoryMultiSelect
                   categories={categories}
                   selected={form.categoryIds}

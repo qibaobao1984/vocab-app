@@ -34,8 +34,9 @@ export function ReviewView() {
   const [revealed, setRevealed] = useState(false)
   const [done, setDone] = useState(false)
   const [stats, setStats] = useState({ total: 0 })
-  const [loading, setLoading] = useState(() => useStore.getState().reviewSeed != null)
+  const [loading, setLoading] = useState(true)
   const [categories, setCategories] = useState<Category[]>([])
+  const [wordPool, setWordPool] = useState<WordEntry[]>([])
   const [selectedCats, setSelectedCats] = useState<Set<number>>(new Set())
   const catInitRef = useRef(false)
   const planIdRef = useRef<number | undefined>(undefined)
@@ -43,11 +44,16 @@ export function ReviewView() {
   const [started, setStarted] = useState(false)
   const [readingWords, setReadingWords] = useState<WordEntry[] | null>(null)
 
+  const selectedWordCount = useMemo(() => {
+    if (selectedCats.size === 0 || wordPool.length === 0) return 0
+    return wordPool.filter((w) => w.meanings.some((m) => selectedCats.has(m.categoryId))).length
+  }, [wordPool, selectedCats])
+
   const loadQueue = useCallback(async (sel: Set<number>) => {
     setLoading(true)
     const now = Date.now()
-    const [all, allCards] = await Promise.all([repoWords(), repoCards()])
-    const words = sel.size > 0 ? all.filter((w) => w.meanings.some((m) => sel.has(m.categoryId))) : []
+    const allCards = await repoCards()
+    const words = sel.size > 0 ? wordPool.filter((w) => w.meanings.some((m) => sel.has(m.categoryId))) : []
     const wordMap = new Map(words.map((w) => [w.id!, w]))
     const dueCards = allCards
       .filter((c) => c.dueDate <= now && wordMap.has(c.wordId))
@@ -62,32 +68,36 @@ export function ReviewView() {
     setDone(items.length === 0)
     setStats({ total: 0 })
     setLoading(false)
-  }, [])
+  }, [wordPool])
+
+  const loadQueueRef = useRef(loadQueue)
+  loadQueueRef.current = loadQueue
 
   const startReading = useCallback(async () => {
-    const all = await repoWords()
-    const words = selectedCats.size > 0 ? all.filter((w) => w.meanings.some((m) => selectedCats.has(m.categoryId))) : all
+    const words = selectedCats.size > 0 ? wordPool.filter((w) => w.meanings.some((m) => selectedCats.has(m.categoryId))) : wordPool
     if (words.length === 0) return
     setReadingWords(words)
-  }, [selectedCats])
+  }, [selectedCats, wordPool])
 
   useEffect(() => {
-    repoCategories().then((cats) => {
+    Promise.all([repoCategories(), repoWords()]).then(([cats, all]) => {
       setCategories(cats)
+      setWordPool(all)
       const seed = useStore.getState().reviewSeed
       if (seed && seed.categoryIds.length > 0) {
         const sel = new Set(seed.categoryIds)
         planIdRef.current = seed.planId
         setSelectedCats(sel)
         setStarted(true)
-        void loadQueue(sel)
+        void loadQueueRef.current(sel)
         useStore.getState().clearReviewSeed()
       } else if (!catInitRef.current && cats.length > 0) {
         catInitRef.current = true
         setSelectedCats(new Set())
       }
+      setLoading(false)
     })
-  }, [refreshKey, loadQueue])
+  }, [refreshKey])
 
   const reviewPersistedRef = useRef(false)
   useEffect(() => {
@@ -153,14 +163,12 @@ export function ReviewView() {
     return (
       <Page title="复习与记忆" icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" description="复习到期单词，或沉浸式阅读词库" className="max-w-xl">
         <div className="card p-4 mb-4">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2 block">选择词库类别（可多选）</label>
           <CategoryMultiSelect
             categories={categories}
             selected={selectedCats}
             onChange={setSelectedCats}
-            className="w-full"
+            className="w-full mb-3"
           />
-          <p className="text-xs text-gray-400 mt-2">选择父类别将包含其所有子类别的单词</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -168,7 +176,7 @@ export function ReviewView() {
             disabled={selectedCats.size === 0 || loading}
             className="btn bg-white text-brand-600 border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:bg-gray-800 dark:text-brand-400 dark:border-brand-700 dark:hover:bg-brand-600 dark:hover:text-white dark:hover:border-brand-600 flex-1"
           >
-            开始阅读
+            开始阅读（{selectedWordCount} 词）
           </button>
           <button
             onClick={() => {
@@ -178,7 +186,7 @@ export function ReviewView() {
             disabled={selectedCats.size === 0 || loading}
             className="btn bg-white text-brand-600 border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:bg-gray-800 dark:text-brand-400 dark:border-brand-700 dark:hover:bg-brand-600 dark:hover:text-white dark:hover:border-brand-600 flex-1"
           >
-            开始复习
+            开始复习（{selectedWordCount} 词）
           </button>
         </div>
       </Page>
@@ -203,13 +211,13 @@ export function ReviewView() {
               ? `本次复习 ${reviewed} 词，还剩 ${remaining} 词未复习，下次继续`
               : `本次共复习 ${reviewed} 词，到期单词全部搞定`
             : empty
-              ? '所选类别中没有到期的单词'
+              ? '所选词库中没有到期的单词'
               : '本次没有复习任何单词'}
         </p>
         <div className="flex flex-col gap-2 max-w-xs mx-auto">
           <button onClick={() => setActiveTab('quiz')} className="btn-primary">去测验</button>
           <div className="flex gap-2">
-            <button onClick={() => setStarted(false)} className="btn-secondary flex-1">换类别</button>
+            <button onClick={() => setStarted(false)} className="btn-secondary flex-1">换词库</button>
             <button onClick={() => setActiveTab('cards')} className="btn-secondary flex-1">查看卡片</button>
           </div>
         </div>

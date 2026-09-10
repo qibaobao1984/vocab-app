@@ -242,17 +242,17 @@ export function CardsView() {
 
   const selectedCatLabel = useMemo(() => {
     if (selectedCats.size === 0) return ''
-    if (selectedCats.size >= categories.length) return '全部类别'
+    if (selectedCats.size >= categories.length) return '词库'
     const names = categories.filter((c) => selectedCats.has(c.id!)).map((c) => c.name)
     if (names.length <= 3) return names.join('、')
-    return `${names.length}个类别`
+    return `${names.length}个词库`
   }, [selectedCats, categories])
 
   const requestDeleteCategory = (id: number) => {
     const cat = categories.find((c) => c.id === id)
     if (!cat) return
     if (categories.some((c) => c.parentId === id)) {
-      setDeleteCatError(`「${cat.name}」下还有子类别，请先删除所有子类别`)
+      setDeleteCatError(`「${cat.name}」下还有子词库，请先删除所有子词库`)
       setDeleteCatTarget(null)
       return
     }
@@ -315,10 +315,10 @@ export function CardsView() {
     ? deleteTarget.kind === 'word'
       ? subtreeIds && subtreeIds.size > 0
         ? {
-            title: '从所选类别删除',
+            title: '从所选词库删除',
             message: (
               <>
-                确定删除单词 <b className="text-gray-700 dark:text-gray-200">{deleteTarget.word.text}</b> 在所选类别（{selectedCatLabel}）下的释义吗？其他类别的释义将保留；若该单词无其他释义，将整体删除（含卡片与记录），此操作不可撤销。
+                确定删除单词 <b className="text-gray-700 dark:text-gray-200">{deleteTarget.word.text}</b> 在所选词库（{selectedCatLabel}）下的释义吗？其他词库的释义将保留；若该单词无其他释义，将整体删除（含卡片与记录），此操作不可撤销。
               </>
             ),
           }
@@ -333,10 +333,10 @@ export function CardsView() {
       : deleteTarget.kind === 'words'
         ? subtreeIds && subtreeIds.size > 0
           ? {
-              title: '从所选类别删除',
+              title: '从所选词库删除',
               message: (
                 <>
-                  将删除选中的 <b className="text-red-600">{deleteTarget.words.length}</b> 个单词在所选类别（{selectedCatLabel}）下的释义，其他类别的释义将保留；若无其他释义的单词将整体删除（含卡片与记录），此操作不可撤销。
+                  将删除选中的 <b className="text-red-600">{deleteTarget.words.length}</b> 个单词在所选词库（{selectedCatLabel}）下的释义，其他词库的释义将保留；若无其他释义的单词将整体删除（含卡片与记录），此操作不可撤销。
                 </>
               ),
             }
@@ -350,10 +350,10 @@ export function CardsView() {
             }
         : deleteTarget.kind === 'category'
           ? {
-              title: `清空所选类别`,
+              title: `清空所选词库`,
               message: (
                 <>
-                  将删除所选类别（{deleteTarget.label}）下共 <b className="text-red-600">{deleteTarget.count}</b> 个词的释义，无其他类别释义的词将整体删除（含卡片与记录），此操作不可撤销。
+                  将删除所选词库（{deleteTarget.label}）下共 <b className="text-red-600">{deleteTarget.count}</b> 个词的释义，无其他词库释义的词将整体删除（含卡片与记录），此操作不可撤销。
                 </>
               ),
             }
@@ -361,7 +361,7 @@ export function CardsView() {
               title: '清空全部单词',
               message: (
                 <>
-                将删除词库中全部 <b className="text-red-600">{deleteTarget.count}</b> 个单词及其卡片、学习记录、错题与考试记录，此操作不可撤销！类别会保留。
+                将删除词库中全部 <b className="text-red-600">{deleteTarget.count}</b> 个单词及其卡片、学习记录、错题与考试记录，此操作不可撤销！词库会保留。
                 </>
               ),
             }
@@ -562,7 +562,7 @@ export function CardsView() {
                   }
                   className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-lg transition-colors"
                 >
-                  清空所选类别（{selectedCatCount}）
+                  清空所选词库（{selectedCatCount}）
                 </button>
               )}
               {items.length > 0 && (
@@ -586,7 +586,7 @@ export function CardsView() {
           const catLabel =
             categories.length <= 1
               ? categories[0]?.path ?? '未分类'
-              : `${categories.length}个类别`
+              : `${categories.length}个词库`
           const phonetic = word.meanings.map((m) => m.phonetic).find(Boolean)
           const isSelected = selectMode && selected.has(word.id!)
           return (
@@ -796,11 +796,11 @@ export function CardsView() {
 
       <ConfirmDialog
         open={deleteCatTarget !== null}
-        title="删除类别"
+        title="删除词库"
         confirmText="确认删除"
         message={
           <>
-            确定删除类别 <b className="text-gray-700 dark:text-gray-200">{deleteCatTarget?.name}</b> 吗？该类别下没有单词和子类别，删除后不可恢复。
+            确定删除词库 <b className="text-gray-700 dark:text-gray-200">{deleteCatTarget?.name}</b> 吗？该词库下没有单词和子词库，删除后不可恢复。
           </>
         }
         onConfirm={async () => {

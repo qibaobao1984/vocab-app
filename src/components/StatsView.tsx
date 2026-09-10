@@ -416,7 +416,7 @@ export function StatsView() {
       {categories.length > 0 && (
         <div className="card p-4 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">词库类别</h2>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">词库</h2>
             <div className="flex gap-1 text-[10px] text-gray-400">
               <button onClick={() => setExpanded(new Set(categories.map((c) => c.id!)))} className="hover:text-brand-600 px-1">全展开</button>
               <span>·</span>
@@ -642,7 +642,7 @@ export function StatsView() {
 
               {/* word cards */}
               {groupWords.length === 0 ? (
-                <p className="text-center text-xs text-gray-400 py-8">该类别暂无单词</p>
+                <p className="text-center text-xs text-gray-400 py-8">该词库暂无单词</p>
               ) : (
                 <>
                   <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">

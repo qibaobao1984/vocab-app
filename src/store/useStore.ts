@@ -105,7 +105,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   createCategory: async (name, parentId) => {
     const trimmed = name.trim()
-    if (!trimmed) throw new Error('类别名称不能为空')
+    if (!trimmed) throw new Error('词库名称不能为空')
     const cats = await repo.repoCategories()
     const existing = cats.find((c) => c.name === trimmed && (c.parentId ?? null) === (parentId ?? null))
     if (existing && existing.id) return existing.id
@@ -116,9 +116,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
   renameCategory: async (categoryId, newName) => {
     const trimmed = newName.trim()
-    if (!trimmed) throw new Error('类别名称不能为空')
+    if (!trimmed) throw new Error('词库名称不能为空')
     const cat = await repo.repoGetCategory(categoryId)
-    if (!cat) throw new Error('类别不存在')
+    if (!cat) throw new Error('词库不存在')
     if (cat.name === trimmed) return
     await repo.repoUpdateCategoryName(categoryId, trimmed)
     get().refresh()
@@ -127,11 +127,11 @@ export const useStore = create<StoreState>((set, get) => ({
   deleteCategory: async (categoryId) => {
     const cats = await repo.repoCategories()
     if (cats.some((c) => c.parentId === categoryId)) {
-      throw new Error('该类别下还有子类别，请先删除所有子类别')
+      throw new Error('该词库下还有子词库，请先删除所有子词库')
     }
     const words = await repo.repoWords()
     if (words.some((w) => w.meanings.some((m) => m.categoryId === categoryId))) {
-      throw new Error('该类别下还有单词，无法删除')
+      throw new Error('该词库下还有单词，无法删除')
     }
     await repo.repoDeleteCategory(categoryId)
     get().refresh()

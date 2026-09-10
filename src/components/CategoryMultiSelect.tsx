@@ -248,7 +248,7 @@ export function CategoryMultiSelect({
                     'flex-shrink-0 px-1.5 py-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors',
                     !(editable && onRename) && 'ml-auto',
                   )}
-                  title="删除类别"
+                  title="删除词库"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -274,7 +274,7 @@ export function CategoryMultiSelect({
             indeterminate={masterState === 'indeterminate'}
             onChange={toggleAll}
           />
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">全部类别</span>
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">词库</span>
           {noneChecked && (
             <span className="text-xs text-amber-500 dark:text-amber-400">请至少选一个</span>
           )}
