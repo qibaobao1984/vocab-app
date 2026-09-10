@@ -164,6 +164,13 @@ export function ReviewView() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => void startReading()}
+            disabled={selectedCats.size === 0 || loading}
+            className="btn bg-white text-brand-600 border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:bg-gray-800 dark:text-brand-400 dark:border-brand-700 dark:hover:bg-brand-600 dark:hover:text-white dark:hover:border-brand-600 flex-1"
+          >
+            开始阅读
+          </button>
+          <button
             onClick={() => {
               setStarted(true)
               void loadQueue(selectedCats)
@@ -172,13 +179,6 @@ export function ReviewView() {
             className="btn bg-white text-brand-600 border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:bg-gray-800 dark:text-brand-400 dark:border-brand-700 dark:hover:bg-brand-600 dark:hover:text-white dark:hover:border-brand-600 flex-1"
           >
             开始复习
-          </button>
-          <button
-            onClick={() => void startReading()}
-            disabled={selectedCats.size === 0 || loading}
-            className="btn bg-white text-brand-600 border border-brand-300 hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:bg-gray-800 dark:text-brand-400 dark:border-brand-700 dark:hover:bg-brand-600 dark:hover:text-white dark:hover:border-brand-600 flex-1"
-          >
-            开始阅读
           </button>
         </div>
       </Page>

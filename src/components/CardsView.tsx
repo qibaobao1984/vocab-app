@@ -373,13 +373,6 @@ export function CardsView() {
       icon="M4 4h16v16H4z"
       description="浏览词库，点击卡片翻面查看释义"
     >
-      {dueCount > 0 && (
-        <div className="flex justify-end mb-4">
-          <button onClick={() => setActiveTab('review')} className="btn-primary text-xs">
-            {dueCount} 词待复习 →
-          </button>
-        </div>
-      )}
       <div className="flex flex-col gap-2 mb-4">
         <div className="flex flex-wrap gap-2">
           <input
@@ -541,6 +534,14 @@ export function CardsView() {
             </>
           ) : (
             <>
+              {dueCount > 0 && (
+                <button
+                  onClick={() => setActiveTab('review')}
+                  className="text-xs text-white bg-brand-600 hover:bg-brand-700 px-2.5 py-1 rounded-lg transition-colors font-medium"
+                >
+                  {dueCount} 词待复习 →
+                </button>
+              )}
               {items.length > 0 && (
                 <button
                   onClick={() => setSelectMode(true)}
