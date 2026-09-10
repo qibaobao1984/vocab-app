@@ -43,7 +43,11 @@ function firstLetterHint(text: string): string {
   return text
     .trim()
     .split(/\s+/)
-    .map((w) => (w.length > 0 ? w.charAt(0) : ''))
+    .map((w) => {
+      if (w.length === 0) return ''
+      if (!/[a-zA-Z]/.test(w.charAt(0))) return w
+      return w.charAt(0) + '___'
+    })
     .join(' ')
 }
 function buildPolysemyQuestions(words: WordEntry[], difficulty: 'easy' | 'classic' | 'hardcore'): PolysemyQuestion[] {
@@ -1509,7 +1513,7 @@ export function QuizView({ active }: { active: boolean }) {
         )}
         {sq.hint && !feedback && (
           <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
-            首字母提示：<span className="font-mono font-bold tracking-[0.25em]">{sq.hint}</span>
+            首字母提示：<span className="font-mono font-bold text-lg">{sq.hint}</span>
           </p>
         )}
       </div>
