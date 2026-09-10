@@ -459,12 +459,11 @@ export async function repoSwapCategoryOrder(id1: number, id2: number): Promise<v
 export async function repoMergeCategories(sourceId: number, targetId: number): Promise<void> {
   return withFallback(
     async () => {
-      const { data: words, error } = await supabase!.from('words').select('*')
-      if (error) throw new Error(error.message)
-      for (const w of (words ?? []) as Array<{ id: number; meanings: WordMeaning[] }>) {
-        if (!w.meanings.some((m) => m.categoryId === sourceId)) continue
+      const words = await selectAll<WordRow>('words')
+      for (const w of words) {
+        if (!w.meanings.some((m) => Number(m.categoryId) === sourceId)) continue
         const newMeanings = w.meanings.map((m) =>
-          m.categoryId === sourceId ? { ...m, categoryId: targetId } : m
+          Number(m.categoryId) === sourceId ? { ...m, categoryId: targetId } : m
         )
         const deduped = newMeanings.filter((m, i, arr) =>
           i === arr.findIndex((x) => x.categoryId === m.categoryId && x.meaning === m.meaning)
@@ -493,6 +492,49 @@ export async function repoMergeCategories(sourceId: number, targetId: number): P
         await db.mistakes.where('categoryId').equals(sourceId).delete()
         await db.categories.delete(sourceId)
       })
+    },
+  )
+}
+
+export async function repoFixOrphanMeanings(targetId: number): Promise<number> {
+  const cats = await repoCategories()
+  const validIds = new Set(cats.map((c) => c.id!))
+  let fixed = 0
+  return withFallback(
+    async () => {
+      const words = await selectAll<WordRow>('words')
+      for (const w of words) {
+        const hasOrphan = w.meanings.some((m) => !validIds.has(Number(m.categoryId)))
+        if (!hasOrphan) continue
+        const newMeanings = w.meanings.map((m) =>
+          validIds.has(Number(m.categoryId)) ? m : { ...m, categoryId: targetId }
+        )
+        const deduped = newMeanings.filter((m, i, arr) =>
+          i === arr.findIndex((x) => x.categoryId === m.categoryId && x.meaning === m.meaning)
+        )
+        const { error } = await supabase!.from('words').update({ meanings: deduped }).eq('id', w.id)
+        if (error) throw new Error(error.message)
+        fixed++
+      }
+      return fixed
+    },
+    async () => {
+      await db.transaction('rw', db.words, async () => {
+        const allWords = await db.words.toArray()
+        for (const w of allWords) {
+          const hasOrphan = w.meanings.some((m) => !validIds.has(m.categoryId))
+          if (!hasOrphan) continue
+          const newMeanings = w.meanings.map((m) =>
+            validIds.has(m.categoryId) ? m : { ...m, categoryId: targetId }
+          )
+          const deduped = newMeanings.filter((m, i, arr) =>
+            i === arr.findIndex((x) => x.categoryId === m.categoryId && x.meaning === m.meaning)
+          )
+          await db.words.update(w.id!, { meanings: deduped })
+          fixed++
+        }
+      })
+      return fixed
     },
   )
 }

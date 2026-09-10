@@ -109,9 +109,9 @@ export function CardsView() {
   }, [refreshKey])
 
   const subtreeIds = useMemo(() => {
-    if (selectedCats.size === 0) return null
+    if (selectedCats.size === 0 || selectedCats.size >= categories.length) return null
     return selectedCats
-  }, [selectedCats])
+  }, [selectedCats, categories.length])
 
   const filtered = useMemo(() => {
     let result = items
@@ -162,6 +162,7 @@ export function CardsView() {
   const currentPage = Math.min(page, totalPages)
   const pagedItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   const pageIds = pagedItems.map((i) => i.word.id!)
+
   const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
   const someOnPageSelected = !allOnPageSelected && pageIds.some((id) => selected.has(id))
 
@@ -589,14 +590,14 @@ export function CardsView() {
       </div>
 
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {pagedItems.map(({ word, card, categories }) => {
+        {pagedItems.map(({ word, card, categories: wordCats }) => {
           const isFlipped = flipped.has(word.id!)
           const status = card?.status ?? 'new'
           const label = STATUS_LABELS[status]
           const catLabel =
-            categories.length <= 1
-              ? categories[0]?.path ?? '未分类'
-              : `${categories.length}个词库`
+            wordCats.length <= 1
+              ? wordCats[0]?.path ?? '未分类'
+              : `${wordCats.length}个词库`
           const phonetic = word.meanings.map((m) => m.phonetic).find(Boolean)
           const isSelected = selectMode && selected.has(word.id!)
           return (
@@ -749,7 +750,7 @@ export function CardsView() {
                   </span>
                   <div className="flex-1 overflow-y-auto mt-6 space-y-2">
                     {word.meanings.map((m, mi) => {
-                      const path = categories.find((c) => c.categoryId === m.categoryId)?.path ?? '未分类'
+                      const path = wordCats.find((c) => c.categoryId === m.categoryId)?.path ?? '未分类'
                       return (
                         <div key={mi} className="text-left">
                           <p className="text-[10px] text-brand-500 dark:text-brand-400 font-medium">{path}</p>

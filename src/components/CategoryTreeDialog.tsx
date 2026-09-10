@@ -16,11 +16,15 @@ export function CategoryTreeDialog({ open, onClose }: CategoryTreeDialogProps) {
   const moveCategory = useStore((s) => s.moveCategory)
   const swapCategoryOrder = useStore((s) => s.swapCategoryOrder)
   const mergeCategories = useStore((s) => s.mergeCategories)
+  const fixOrphanMeanings = useStore((s) => s.fixOrphanMeanings)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [dragId, setDragId] = useState<number | null>(null)
   const [dragOverId, setDragOverId] = useState<number | null>(null)
   const [confirm, setConfirm] = useState<{ title: string; message: React.ReactNode; danger?: boolean; onConfirm: () => Promise<void> } | null>(null)
+  const [orphanCount, setOrphanCount] = useState(0)
+  const [fixTarget, setFixTarget] = useState('')
+  const [fixing, setFixing] = useState(false)
   const [mergeSource, setMergeSource] = useState<number | null>(null)
   const [mergeTarget, setMergeTarget] = useState<string>('')
   const [error, setError] = useState('')
@@ -29,9 +33,13 @@ export function CategoryTreeDialog({ open, onClose }: CategoryTreeDialogProps) {
     if (!open) return
     let active = true
     setLoading(true)
-    import('../lib/repo').then((m) => m.repoCategories()).then((cats) => {
+    import('../lib/repo').then(async (m) => {
+      const [cats, words] = await Promise.all([m.repoCategories(), m.repoWords()])
       if (!active) return
       setCategories(cats)
+      const validIds = new Set(cats.map((c) => c.id!))
+      const orphans = words.filter((w) => w.meanings.some((mm) => !validIds.has(mm.categoryId)))
+      setOrphanCount(orphans.length)
       setLoading(false)
     })
     return () => { active = false }
@@ -236,8 +244,42 @@ export function CategoryTreeDialog({ open, onClose }: CategoryTreeDialogProps) {
           )}
         </div>
 
+        {orphanCount > 0 && (
+          <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
+            <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+              发现 {orphanCount} 个词的词库归属缺失（显示为「未分类」），可选择目标词库修复：
+            </p>
+            <div className="flex gap-2">
+              <CategorySelect
+                categories={categories}
+                value={fixTarget}
+                onChange={setFixTarget}
+                firstOption={{ value: 'none', label: '— 选择目标词库 —' }}
+                className="flex-1 text-sm"
+              />
+              <button
+                onClick={async () => {
+                  if (!fixTarget || fixTarget === 'none') return
+                  setFixing(true)
+                  try {
+                    await fixOrphanMeanings(Number(fixTarget))
+                    setOrphanCount(0)
+                    setFixTarget('')
+                  } finally {
+                    setFixing(false)
+                  }
+                }}
+                disabled={!fixTarget || fixTarget === 'none' || fixing}
+                className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+              >
+                {fixing ? '修复中...' : '修复'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="p-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400">
-          拖拽词库到另一个词库上可调整层级，点击「合并」可将词库合并到其他词库
+          拖拽词库可调整层级，↑↓调整顺序，点击「合并」可合并词库
         </div>
       </div>
 

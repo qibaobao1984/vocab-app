@@ -38,6 +38,7 @@ interface StoreState {
   moveCategory: (categoryId: number, newParentId: number | null) => Promise<void>
   swapCategoryOrder: (id1: number, id2: number) => Promise<void>
   mergeCategories: (sourceId: number, targetId: number) => Promise<void>
+  fixOrphanMeanings: (targetId: number) => Promise<number>
   updateWord: (wordId: number, data: { text: string; meanings: WordMeaning[] }) => Promise<void>
   setStarred: (wordId: number, starred: boolean) => Promise<void>
   deleteWord: (wordId: number) => Promise<void>
@@ -164,6 +165,12 @@ export const useStore = create<StoreState>((set, get) => ({
     if (cats.some((c) => c.parentId === sourceId)) throw new Error('源词库下还有子词库，请先处理子词库')
     await repo.repoMergeCategories(sourceId, targetId)
     get().refresh()
+  },
+
+  fixOrphanMeanings: async (targetId) => {
+    const count = await repo.repoFixOrphanMeanings(targetId)
+    get().refresh()
+    return count
   },
 
   updateWord: async (wordId, data) => {
