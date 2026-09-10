@@ -78,6 +78,8 @@ create table if not exists mistakes (
   created_at bigint not null
 );
 
+alter table mistakes add column if not exists spell_difficulty text;
+
 -- ============ 测验记录 ============
 create table if not exists quiz_sessions (
   id bigint generated always as identity primary key,

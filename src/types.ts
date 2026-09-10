@@ -72,6 +72,7 @@ export interface Mistake {
   timedOut: boolean
   resolved: boolean
   createdAt: number
+  spellDifficulty?: 'easy' | 'classic'
 }
 
 export interface WrongRecord {
@@ -83,6 +84,7 @@ export interface WrongRecord {
   userAnswer: string
   mode: 'choice' | 'spell' | 'posconv'
   timedOut: boolean
+  spellDifficulty?: 'easy' | 'classic'
 }
 
 export interface QuizSession {

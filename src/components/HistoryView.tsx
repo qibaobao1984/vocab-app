@@ -163,6 +163,10 @@ const WRONG_PAGE_SIZE = 12
     if (!wrongs || wrongs.length === 0) return
     const wordMap = await repoWordsByIds(wrongs.map((w) => w.wordId))
     if (wordMap.size === 0) return
+    const wsDiff: Record<number, 'easy' | 'classic'> = {}
+    for (const w of wrongs) {
+      if (w.spellDifficulty) wsDiff[w.wordId] = w.spellDifficulty
+    }
     if (session.mode === 'mixed') {
       const words: WordEntry[] = []
       const modes: ('choice' | 'spell' | 'posconv')[] = []
@@ -173,10 +177,10 @@ const WRONG_PAGE_SIZE = 12
         modes.push(w.mode)
       }
       if (words.length === 0) return
-      launchQuizFromWords(words, 'mixed', modes, true)
+      launchQuizFromWords(words, 'mixed', modes, true, undefined, wsDiff)
       return
     }
-    launchQuizFromWords([...wordMap.values()], session.mode, undefined, true)
+    launchQuizFromWords([...wordMap.values()], session.mode, undefined, true, undefined, wsDiff)
   }
 
   if (loading) {

@@ -56,6 +56,7 @@ interface MistakeRow {
   timed_out: boolean
   resolved: boolean
   created_at: number
+  spell_difficulty?: string
 }
 interface QuizRow {
   id: number
@@ -190,6 +191,7 @@ const fromMistakeRow = (r: MistakeRow): Mistake => ({
   timedOut: r.timed_out,
   resolved: r.resolved,
   createdAt: toNum(r.created_at),
+  spellDifficulty: r.spell_difficulty === 'easy' || r.spell_difficulty === 'classic' ? r.spell_difficulty : undefined,
 })
 const fromQuizRow = (r: QuizRow): QuizSession => ({
   id: toNum(r.id),
@@ -957,6 +959,7 @@ export function repoUpsertMistake(data: Omit<Mistake, 'id' | 'resolved' | 'creat
         correct_answer: data.correctAnswer,
         mode: data.mode,
         timed_out: data.timedOut,
+        spell_difficulty: data.spellDifficulty ?? null,
         created_at: Date.now(),
       }
       if (existing) {
@@ -981,6 +984,7 @@ export function repoUpsertMistake(data: Omit<Mistake, 'id' | 'resolved' | 'creat
             mode: data.mode,
             timedOut: data.timedOut,
             categoryId: data.categoryId,
+            spellDifficulty: data.spellDifficulty,
             createdAt: Date.now(),
           })
         } else {
@@ -1219,6 +1223,7 @@ export async function repoImportAll(data: BackupData): Promise<void> {
             mode: m.mode,
             timed_out: m.timedOut,
             resolved: m.resolved,
+            spell_difficulty: m.spellDifficulty ?? null,
             created_at: m.createdAt,
           })),
         )
@@ -1356,6 +1361,7 @@ export async function repoMigrateLocalToRemote(): Promise<MigrationResult> {
           mode: m.mode,
           timed_out: m.timedOut,
           resolved: m.resolved,
+          spell_difficulty: m.spellDifficulty ?? null,
           created_at: m.createdAt,
         })),
       )

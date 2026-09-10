@@ -17,6 +17,8 @@ interface QuizSeed {
   mode: 'choice' | 'spell' | 'posconv' | 'mixed'
   mixedModes?: Mistake['mode'][]
   retest?: boolean
+  spellDifficulty?: 'easy' | 'classic'
+  wordSpellDiff?: Record<number, 'easy' | 'classic'>
 }
 
 interface StoreState {
@@ -49,7 +51,7 @@ interface StoreState {
   clearQuizSessions: () => Promise<number>
   exportData: () => Promise<unknown>
   importData: (data: unknown) => Promise<void>
-  launchQuizFromWords: (words: WordEntry[], mode: 'choice' | 'spell' | 'posconv' | 'mixed', mixedModes?: Mistake['mode'][], retest?: boolean) => void
+  launchQuizFromWords: (words: WordEntry[], mode: 'choice' | 'spell' | 'posconv' | 'mixed', mixedModes?: Mistake['mode'][], retest?: boolean, spellDifficulty?: 'easy' | 'classic', wordSpellDiff?: Record<number, 'easy' | 'classic'>) => void
   clearQuizSeed: () => void
   reviewSeed: { categoryIds: number[]; planId?: number } | null
   launchReviewFromPlan: (categoryIds: number[], planId?: number) => void
@@ -75,8 +77,8 @@ export const useStore = create<StoreState>((set, get) => ({
   clearQuizSeed: () => set({ quizSeed: null }),
   clearReviewSeed: () => set({ reviewSeed: null }),
 
-  launchQuizFromWords: (words, mode, mixedModes, retest) => {
-    set({ quizSeed: { words, mode, mixedModes, retest }, activeTab: 'quiz' })
+  launchQuizFromWords: (words, mode, mixedModes, retest, spellDifficulty, wordSpellDiff) => {
+    set({ quizSeed: { words, mode, mixedModes, retest, spellDifficulty, wordSpellDiff }, activeTab: 'quiz' })
     get().refresh()
   },
 

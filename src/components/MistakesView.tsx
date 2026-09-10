@@ -149,6 +149,10 @@ export function MistakesView() {
     const wordIds = [...new Set(list.map((m) => m.wordId))]
     const wordMap = await repoWordsByIds(wordIds)
     if (wordMap.size === 0) return
+    const wsDiff: Record<number, 'easy' | 'classic'> = {}
+    for (const m of list) {
+      if (m.spellDifficulty) wsDiff[m.wordId] = m.spellDifficulty
+    }
     if (testMode === 'mixed') {
       const words: WordEntry[] = []
       const modes: ('choice' | 'spell' | 'posconv')[] = []
@@ -163,10 +167,10 @@ export function MistakesView() {
         modes.push(m.mode)
       }
       if (words.length === 0) return
-      launchQuizFromWords(words, 'mixed', modes, true)
+      launchQuizFromWords(words, 'mixed', modes, true, undefined, wsDiff)
       return
     }
-    launchQuizFromWords([...wordMap.values()], testMode, undefined, true)
+    launchQuizFromWords([...wordMap.values()], testMode, undefined, true, undefined, wsDiff)
   }
 
   if (loading) {

@@ -21,11 +21,19 @@ interface ChoiceQuestion {
 }
 interface SpellQuestion {
   word: WordEntry
+  hint?: string
 }
 type QuizQuestion = ChoiceQuestion | SpellQuestion
 function questionMode(q: QuizQuestion): 'choice' | 'spell' | 'posconv' {
   if ('options' in q) return q.type === 'posconv' ? 'posconv' : 'choice'
   return 'spell'
+}
+function firstLetterHint(text: string): string {
+  return text
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w.length > 0 ? w.charAt(0) : ''))
+    .join(' ')
 }
 interface WrongItem {
   word: WordEntry
@@ -33,6 +41,7 @@ interface WrongItem {
   userAns: string
   timedOut: boolean
   mode: 'choice' | 'spell' | 'posconv'
+  spellDifficulty?: 'easy' | 'classic'
 }
 
 const OPTION_COUNT = 4
@@ -60,6 +69,7 @@ interface SavedQuizState {
   activeMs: number
   feedback: { correct: boolean; correctAns: string; timedOut?: boolean } | null
   hinted: number[]
+  spellDifficulty?: 'easy' | 'classic'
 }
 
 function saveQuizState(state: SavedQuizState) {
@@ -228,6 +238,7 @@ export function QuizView({ active }: { active: boolean }) {
   const [quizSize, setQuizSize] = useState<number>(50)
   const [customSize, setCustomSize] = useState<string>('')
   const [difficulty, setDifficulty] = useState<'classic' | 'hardcore'>('classic')
+  const [spellDifficulty, setSpellDifficulty] = useState<'easy' | 'classic'>('classic')
   const [timeLeft, setTimeLeft] = useState(CHOICE_TIME)
   const answeredRef = useRef(false)
   const autoNextRef = useRef<number | null>(null)
@@ -279,7 +290,13 @@ export function QuizView({ active }: { active: boolean }) {
   }, [selectedCats, categories])
 
   const startQuiz = useCallback(
-    async (qm: 'choice' | 'spell' | 'posconv' | 'mixed', pool?: WordEntry[], mixedModes?: ('choice' | 'spell' | 'posconv')[], retest?: boolean) => {
+    async (qm: 'choice' | 'spell' | 'posconv' | 'mixed', pool?: WordEntry[], mixedModes?: ('choice' | 'spell' | 'posconv')[], retest?: boolean, spDiff?: 'easy' | 'classic', wordSpellDiff?: Record<number, 'easy' | 'classic'>) => {
+      const effSpellDiff = spDiff ?? spellDifficulty
+      if (spDiff) setSpellDifficulty(spDiff)
+      const diffFor = (w: WordEntry): 'easy' | 'classic' => {
+        if (wordSpellDiff && w.id != null && wordSpellDiff[w.id]) return wordSpellDiff[w.id]
+        return effSpellDiff
+      }
       const begin = (qs: QuizQuestion[]) => {
         setQuestions(qs)
         setQuizMode(qm)
@@ -305,7 +322,7 @@ export function QuizView({ active }: { active: boolean }) {
         const qs: QuizQuestion[] = []
         for (const p of pairs) {
           if (p.m === 'spell') {
-            qs.push({ word: p.w })
+            qs.push({ word: p.w, hint: diffFor(p.w) === 'easy' ? firstLetterHint(p.w.text) : undefined })
           } else if (p.m === 'posconv') {
             const q = buildPosConvQuestion(p.w)
             if (q) qs.push(q)
@@ -334,11 +351,11 @@ export function QuizView({ active }: { active: boolean }) {
         const optCount = hc ? HARDCORE_OPTION_COUNT : OPTION_COUNT
         qs = picked.map((w) => (qm === 'posconv' ? buildPosConvQuestion(w)! : buildChoiceQuestion(w, distractors, optCount, hc)))
       } else {
-        qs = picked.map((w) => ({ word: w }))
+        qs = picked.map((w) => ({ word: w, hint: diffFor(w) === 'easy' ? firstLetterHint(w.text) : undefined }))
       }
       begin(qs)
     },
-    [allWords, wordPool, quizSize, quizCategoryLabel, difficulty],
+    [allWords, wordPool, quizSize, quizCategoryLabel, difficulty, spellDifficulty],
   )
 
   const next = useCallback(() => {
@@ -373,6 +390,7 @@ export function QuizView({ active }: { active: boolean }) {
     const word = q.word
     const correctAns = 'options' in q ? q.options[q.answer] : word.text
     const qMode = questionMode(q)
+    const spDiff = !('options' in q) ? (q.hint ? 'easy' : 'classic') : undefined
     setFeedback({ correct: false, correctAns, timedOut: true })
     setStats((s) => ({ correct: s.correct, total: s.total + 1 }))
     markQuizResult(word.id!, false, qMode)
@@ -382,6 +400,7 @@ export function QuizView({ active }: { active: boolean }) {
       userAns: '（超时未答）',
       timedOut: true,
       mode: qMode,
+      spellDifficulty: spDiff,
     }])
     void recordMistake({
       wordId: word.id!,
@@ -390,6 +409,7 @@ export function QuizView({ active }: { active: boolean }) {
       correctAnswer: correctAns,
       mode: qMode,
       timedOut: true,
+      spellDifficulty: spDiff,
     })
     autoNextRef.current = window.setTimeout(() => next(), 3000)
   }
@@ -479,6 +499,7 @@ export function QuizView({ active }: { active: boolean }) {
         setQuizLabel(saved.quizLabel)
         setQuizSize(saved.quizSize)
         setQuizRetest(saved.quizRetest ?? (saved.quizLabel === '错题重测' || saved.quizLabel === '错题重默'))
+        if (saved.spellDifficulty) setSpellDifficulty(saved.spellDifficulty)
         activeMsRef.current = saved.activeMs
         if (saved.feedback) {
           if (saved.index + 1 >= saved.questions.length) {
@@ -520,11 +541,12 @@ export function QuizView({ active }: { active: boolean }) {
         activeMs: activeMsRef.current,
         feedback,
         hinted: [...hintedSet],
+        spellDifficulty,
       })
     } else if (mode === 'result' || mode === 'menu') {
       clearQuizState()
     }
-  }, [mode, questions, index, stats, wrongItems, quizMode, quizLabel, quizSize, quizRetest, feedback, hintedSet])
+  }, [mode, questions, index, stats, wrongItems, quizMode, quizLabel, quizSize, quizRetest, feedback, hintedSet, spellDifficulty])
 
   useEffect(() => {
     if (quizSeed && quizSeed.words.length > 0) {
@@ -532,7 +554,7 @@ export function QuizView({ active }: { active: boolean }) {
       seedStartedRef.current = true
       setStarting(true)
       clearQuizSeed()
-      void startQuiz(seed.mode, seed.words, seed.mixedModes, seed.retest).finally(() => setStarting(false))
+      void startQuiz(seed.mode, seed.words, seed.mixedModes, seed.retest, seed.spellDifficulty ?? 'classic', seed.wordSpellDiff).finally(() => setStarting(false))
     }
   }, [quizSeed, startQuiz, clearQuizSeed])
 
@@ -556,6 +578,7 @@ export function QuizView({ active }: { active: boolean }) {
       userAnswer: w.userAns,
       mode: w.mode ?? (quizMode === 'mixed' ? 'choice' : quizMode),
       timedOut: w.timedOut,
+      spellDifficulty: w.spellDifficulty,
     }))
     void saveQuizSession({
       date: Date.now(),
@@ -640,6 +663,7 @@ export function QuizView({ active }: { active: boolean }) {
           userAns: spellInput.trim() || '（空）',
           timedOut: false,
           mode: 'spell',
+          spellDifficulty: q.hint ? 'easy' : 'classic',
         }])
         void recordMistake({
           wordId: q.word.id!,
@@ -648,6 +672,7 @@ export function QuizView({ active }: { active: boolean }) {
           correctAnswer: q.word.text,
           mode: 'spell',
           timedOut: false,
+          spellDifficulty: q.hint ? 'easy' : 'classic',
         })
       }
       if (autoNextRef.current !== null) window.clearTimeout(autoNextRef.current)
@@ -807,9 +832,23 @@ export function QuizView({ active }: { active: boolean }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-semibold text-gray-900 dark:text-gray-50">拼写测试</p>
-                <p className="text-xs text-gray-400">看释义拼写单词</p>
+                <p className="text-xs text-gray-400">{spellDifficulty === 'easy' ? '轻松 · 看释义拼写，带首字母提示' : '经典 · 看释义拼写单词'}</p>
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setSpellDifficulty('easy')}
+                  className={clsx('rounded-lg px-2.5 py-1 text-xs font-medium transition-colors', spellDifficulty === 'easy' ? 'bg-amber-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400')}
+                >
+                  轻松
+                </button>
+                <button
+                  onClick={() => setSpellDifficulty('classic')}
+                  className={clsx('rounded-lg px-2.5 py-1 text-xs font-medium transition-colors', spellDifficulty === 'classic' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400')}
+                >
+                  经典
+                </button>
               </div>
             </div>
           </button>
@@ -841,7 +880,7 @@ export function QuizView({ active }: { active: boolean }) {
     const correct = stats.correct
     const wrong = total - correct
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0
-    const modeLabel = quizRetest ? '错题重默' : quizMode === 'choice' ? '选择题' : quizMode === 'spell' ? '拼写测试' : '词性转换'
+    const modeLabel = quizRetest ? '错题重默' : quizMode === 'choice' ? '选择题' : quizMode === 'spell' ? (spellDifficulty === 'easy' ? '拼写测试·轻松' : '拼写测试') : '词性转换'
     const grade = gradeOf(accuracy)
     const resultTotalPages = Math.max(1, Math.ceil(wrongItems.length / RESULT_PAGE_SIZE))
     const resultCurrentPage = Math.min(page, resultTotalPages)
@@ -981,10 +1020,14 @@ export function QuizView({ active }: { active: boolean }) {
           {wrongItems.length > 0 && (
             <button
               onClick={() => {
+                const wsDiff: Record<number, 'easy' | 'classic'> = {}
+                for (const w of wrongItems) {
+                  if (w.spellDifficulty && w.word.id != null) wsDiff[w.word.id] = w.spellDifficulty
+                }
                 if (quizMode === 'mixed') {
-                  void startQuiz('mixed', wrongItems.map((w) => w.word), wrongItems.map((w) => w.mode), true)
+                  void startQuiz('mixed', wrongItems.map((w) => w.word), wrongItems.map((w) => w.mode), true, undefined, wsDiff)
                 } else {
-                  void startQuiz(quizMode, wrongItems.map((w) => w.word), undefined, true)
+                  void startQuiz(quizMode, wrongItems.map((w) => w.word), undefined, true, undefined, wsDiff)
                 }
               }}
               className="btn-primary w-full"
@@ -1083,6 +1126,11 @@ export function QuizView({ active }: { active: boolean }) {
         <p className="text-lg text-gray-700 dark:text-gray-200">{wordDisplayMeaning(sq.word)}</p>
         {wordPhonetic(sq.word) && (
           <p className="text-xs text-gray-400 mt-1">/{wordPhonetic(sq.word)}/</p>
+        )}
+        {sq.hint && !feedback && (
+          <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
+            首字母提示：<span className="font-mono font-bold tracking-[0.25em]">{sq.hint}</span>
+          </p>
         )}
       </div>
 

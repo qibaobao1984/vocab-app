@@ -65,6 +65,7 @@ export function CardsView() {
   const [page, setPage] = useState(1)
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [spellMenuOpen, setSpellMenuOpen] = useState(false)
   const [detailWord, setDetailWord] = useState<WordEntry | null>(null)
   const PAGE_SIZE = 12
 
@@ -224,6 +225,7 @@ export function CardsView() {
   const exitSelectMode = () => {
     setSelectMode(false)
     setSelected(new Set())
+    setSpellMenuOpen(false)
   }
 
   const selectedWords = useMemo(
@@ -492,13 +494,37 @@ export function CardsView() {
         <div className="flex gap-2 items-center">
           {selectMode ? (
             <>
-              <button
-                onClick={() => launchQuizFromWords(selectedWords, 'spell')}
-                disabled={selected.size === 0}
-                className="text-xs text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded-lg transition-colors font-medium"
-              >
-                去拼写测试（{selected.size}）
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setSpellMenuOpen((v) => !v)}
+                  disabled={selected.size === 0}
+                  className="text-xs text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded-lg transition-colors font-medium inline-flex items-center gap-1"
+                >
+                  去拼写测试（{selected.size}）
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {spellMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setSpellMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-20 w-48 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
+                      <button
+                        onClick={() => { setSpellMenuOpen(false); launchQuizFromWords(selectedWords, 'spell', undefined, undefined, 'easy') }}
+                        className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                      >
+                        <span className="font-medium">轻松模式</span>
+                        <span className="text-gray-400 ml-1">· 首字母提示</span>
+                      </button>
+                      <button
+                        onClick={() => { setSpellMenuOpen(false); launchQuizFromWords(selectedWords, 'spell', undefined, undefined, 'classic') }}
+                        className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                      >
+                        <span className="font-medium">经典模式</span>
+                        <span className="text-gray-400 ml-1">· 无提示</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 onClick={() => setDeleteTarget({ kind: 'words', words: selectedWords })}
                 disabled={selected.size === 0}
