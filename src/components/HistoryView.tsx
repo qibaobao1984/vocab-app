@@ -6,7 +6,7 @@ import { PasswordDialog } from './PasswordDialog'
 import { Page } from './Page'
 import { EmptyState } from './EmptyState'
 import { WrongCard } from './WrongCard'
-import type { QuizSession, WordEntry, WrongRecord } from '../types'
+import type { QuizSession, WordEntry, WrongRecord, Mistake } from '../types'
 import clsx from 'clsx'
 
 interface ExpandedData {
@@ -15,13 +15,13 @@ interface ExpandedData {
   wrongCounts: Map<number, number>
 }
 
-const MODE_LABELS: Record<string, string> = { choice: '选择题', spell: '拼写', posconv: '词性转换' }
+const MODE_LABELS: Record<string, string> = { choice: '选择题', spell: '拼写', posconv: '词性转换', polysemy: '一词多译' }
 
-type SessionCategory = 'choice' | 'spell' | 'posconv' | 'retest'
+type SessionCategory = 'choice' | 'spell' | 'posconv' | 'polysemy' | 'retest'
 
 function sessionCategory(s: QuizSession): SessionCategory {
   if (s.isRetest || s.mode === 'mixed' || s.label === '错题重测' || s.label === '错题重默') return 'retest'
-  return s.mode
+  return s.mode as SessionCategory
 }
 
 function scoreColor(score: number): string {
@@ -167,9 +167,22 @@ const WRONG_PAGE_SIZE = 12
     for (const w of wrongs) {
       if (w.spellDifficulty) wsDiff[w.wordId] = w.spellDifficulty
     }
+    if (session.mode === 'polysemy') {
+      const words: WordEntry[] = []
+      const polyRetest: { meaning: string; answerTexts: string[]; required: number }[] = []
+      for (const w of wrongs) {
+        const word = wordMap.get(w.wordId)
+        if (!word || !w.poly) continue
+        words.push(word)
+        polyRetest.push({ meaning: w.poly.meaning, answerTexts: w.poly.answerTexts, required: w.poly.required })
+      }
+      if (words.length === 0) return
+      launchQuizFromWords(words, 'polysemy', undefined, true, undefined, undefined, polyRetest)
+      return
+    }
     if (session.mode === 'mixed') {
       const words: WordEntry[] = []
-      const modes: ('choice' | 'spell' | 'posconv')[] = []
+      const modes: Mistake['mode'][] = []
       for (const w of wrongs) {
         const word = wordMap.get(w.wordId)
         if (!word) continue
@@ -206,7 +219,7 @@ const WRONG_PAGE_SIZE = 12
       description="查看历次测验成绩与错题明细"
     >
       <div className="flex rounded-xl bg-gray-100 dark:bg-gray-700 p-0.5 mb-4 overflow-x-auto">
-        {(['all', 'choice', 'spell', 'posconv', 'retest'] as const).map((m) => (
+        {(['all', 'choice', 'spell', 'posconv', 'polysemy', 'retest'] as const).map((m) => (
           <button
             key={m}
             onClick={() => { setModeFilter(m); setPage(1) }}

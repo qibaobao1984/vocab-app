@@ -1,6 +1,6 @@
 import { speak } from '../lib/tts'
 
-const MODE_LABELS: Record<string, string> = { choice: '选择题', spell: '拼写', posconv: '词性转换' }
+const MODE_LABELS: Record<string, string> = { choice: '选择题', spell: '拼写', posconv: '词性转换', polysemy: '一词多译' }
 
 export interface WrongCardProps {
   text: string

@@ -14,11 +14,12 @@ type Tab = 'home' | 'upload' | 'cards' | 'review' | 'quiz' | 'mistakes' | 'histo
 
 interface QuizSeed {
   words: WordEntry[]
-  mode: 'choice' | 'spell' | 'posconv' | 'mixed'
+  mode: 'choice' | 'spell' | 'posconv' | 'polysemy' | 'mixed'
   mixedModes?: Mistake['mode'][]
   retest?: boolean
   spellDifficulty?: 'easy' | 'classic'
   wordSpellDiff?: Record<number, 'easy' | 'classic'>
+  polyRetest?: { meaning: string; answerTexts: string[]; required: number }[]
 }
 
 interface StoreState {
@@ -43,7 +44,7 @@ interface StoreState {
   deleteWordsMeaningsInCategories: (wordIds: number[], categoryIds: number[]) => Promise<number>
   deleteAllWords: () => Promise<number>
   reviewCard: (cardId: number, wordId: number, quality: Quality) => Promise<void>
-  markQuizResult: (wordId: number, correct: boolean, mode: 'choice' | 'spell' | 'posconv') => Promise<void>
+  markQuizResult: (wordId: number, correct: boolean, mode: 'choice' | 'spell' | 'posconv' | 'polysemy') => Promise<void>
   recordMistake: (data: Omit<Mistake, 'id' | 'resolved' | 'createdAt'>) => Promise<void>
   resolveMistake: (wordId: number, mode: Mistake['mode']) => Promise<void>
   saveQuizSession: (session: Omit<QuizSession, 'id'>) => Promise<number>
@@ -51,7 +52,7 @@ interface StoreState {
   clearQuizSessions: () => Promise<number>
   exportData: () => Promise<unknown>
   importData: (data: unknown) => Promise<void>
-  launchQuizFromWords: (words: WordEntry[], mode: 'choice' | 'spell' | 'posconv' | 'mixed', mixedModes?: Mistake['mode'][], retest?: boolean, spellDifficulty?: 'easy' | 'classic', wordSpellDiff?: Record<number, 'easy' | 'classic'>) => void
+  launchQuizFromWords: (words: WordEntry[], mode: 'choice' | 'spell' | 'posconv' | 'polysemy' | 'mixed', mixedModes?: Mistake['mode'][], retest?: boolean, spellDifficulty?: 'easy' | 'classic', wordSpellDiff?: Record<number, 'easy' | 'classic'>, polyRetest?: { meaning: string; answerTexts: string[]; required: number }[]) => void
   clearQuizSeed: () => void
   reviewSeed: { categoryIds: number[]; planId?: number } | null
   launchReviewFromPlan: (categoryIds: number[], planId?: number) => void
@@ -77,8 +78,8 @@ export const useStore = create<StoreState>((set, get) => ({
   clearQuizSeed: () => set({ quizSeed: null }),
   clearReviewSeed: () => set({ reviewSeed: null }),
 
-  launchQuizFromWords: (words, mode, mixedModes, retest, spellDifficulty, wordSpellDiff) => {
-    set({ quizSeed: { words, mode, mixedModes, retest, spellDifficulty, wordSpellDiff }, activeTab: 'quiz' })
+  launchQuizFromWords: (words, mode, mixedModes, retest, spellDifficulty, wordSpellDiff, polyRetest) => {
+    set({ quizSeed: { words, mode, mixedModes, retest, spellDifficulty, wordSpellDiff, polyRetest }, activeTab: 'quiz' })
     get().refresh()
   },
 

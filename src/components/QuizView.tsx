@@ -7,11 +7,12 @@ import { wordDisplayMeaning, wordPhonetic, wordFirstCategoryId, wordHasMeaning }
 import { CategoryMultiSelect } from './CategoryMultiSelect'
 import { Page } from './Page'
 import { EmptyState } from './EmptyState'
-import type { WordEntry, Category, WrongRecord } from '../types'
+import type { WordEntry, Category, WrongRecord, Mistake } from '../types'
 import { familyOf, memberOf, randomDistractors, eligibleWords, POS_LABELS } from '../lib/wordFamilies'
 import clsx from 'clsx'
 
-type Mode = 'menu' | 'choice' | 'spell' | 'posconv' | 'mixed' | 'result'
+type Mode = 'menu' | 'choice' | 'spell' | 'posconv' | 'polysemy' | 'mixed' | 'result'
+type QuizMode = 'choice' | 'spell' | 'posconv' | 'polysemy' | 'mixed'
 interface ChoiceQuestion {
   type: 'word-to-meaning' | 'meaning-to-word' | 'posconv'
   word: WordEntry
@@ -23,9 +24,19 @@ interface SpellQuestion {
   word: WordEntry
   hint?: string
 }
-type QuizQuestion = ChoiceQuestion | SpellQuestion
-function questionMode(q: QuizQuestion): 'choice' | 'spell' | 'posconv' {
+interface PolysemyQuestion {
+  kind: 'polysemy'
+  word: WordEntry
+  meaning: string
+  answers: string[]
+  answerTexts: string[]
+  required: number
+  words: WordEntry[]
+}
+type QuizQuestion = ChoiceQuestion | SpellQuestion | PolysemyQuestion
+function questionMode(q: QuizQuestion): 'choice' | 'spell' | 'posconv' | 'polysemy' {
   if ('options' in q) return q.type === 'posconv' ? 'posconv' : 'choice'
+  if ('kind' in q) return 'polysemy'
   return 'spell'
 }
 function firstLetterHint(text: string): string {
@@ -35,13 +46,49 @@ function firstLetterHint(text: string): string {
     .map((w) => (w.length > 0 ? w.charAt(0) : ''))
     .join(' ')
 }
+function buildPolysemyQuestions(words: WordEntry[], difficulty: 'easy' | 'classic' | 'hardcore'): PolysemyQuestion[] {
+  const groups = new Map<string, Map<number, WordEntry>>()
+  for (const w of words) {
+    if (w.id == null) continue
+    const seen = new Set<string>()
+    for (const m of w.meanings) {
+      const key = m.meaning.trim()
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      let g = groups.get(key)
+      if (!g) {
+        g = new Map()
+        groups.set(key, g)
+      }
+      g.set(w.id, w)
+    }
+  }
+  const level = difficulty === 'easy' ? 1 : difficulty === 'classic' ? 2 : 3
+  const result: PolysemyQuestion[] = []
+  for (const [meaning, g] of groups) {
+    const ws = shuffle([...g.values()])
+    if (ws.length < 2) continue
+    const required = Math.min(level, ws.length)
+    result.push({
+      kind: 'polysemy',
+      word: ws[0],
+      meaning,
+      answers: ws.map((w) => w.text.trim().toLowerCase()),
+      answerTexts: ws.map((w) => w.text),
+      required,
+      words: ws,
+    })
+  }
+  return shuffle(result)
+}
 interface WrongItem {
   word: WordEntry
   correctAns: string
   userAns: string
   timedOut: boolean
-  mode: 'choice' | 'spell' | 'posconv'
+  mode: 'choice' | 'spell' | 'posconv' | 'polysemy'
   spellDifficulty?: 'easy' | 'classic'
+  poly?: { meaning: string; answerTexts: string[]; required: number }
 }
 
 const OPTION_COUNT = 4
@@ -54,15 +101,16 @@ const SIZE_PRESETS = [
 ]
 const CHOICE_TIME = 15
 const SPELL_TIME = 60
+const POLY_TIME = 60
 const RESULT_PAGE_SIZE = 12
 
 interface SavedQuizState {
-  mode: 'choice' | 'spell' | 'posconv' | 'mixed'
+  mode: 'choice' | 'spell' | 'posconv' | 'polysemy' | 'mixed'
   questions: QuizQuestion[]
   index: number
   stats: { correct: number; total: number }
   wrongItems: WrongItem[]
-  quizMode: 'choice' | 'spell' | 'posconv' | 'mixed'
+  quizMode: QuizMode
   quizLabel: string
   quizSize: number
   quizRetest?: boolean
@@ -70,6 +118,9 @@ interface SavedQuizState {
   feedback: { correct: boolean; correctAns: string; timedOut?: boolean } | null
   hinted: number[]
   spellDifficulty?: 'easy' | 'classic'
+  polyDifficulty?: 'easy' | 'classic' | 'hardcore'
+  polyInputs?: string[]
+  polyResults?: (boolean | null)[]
 }
 
 function saveQuizState(state: SavedQuizState) {
@@ -227,7 +278,7 @@ export function QuizView({ active }: { active: boolean }) {
   const [hintedSet, setHintedSet] = useState<Set<number>>(new Set())
   const spellTotal = questions.reduce((n, q) => n + ('options' in q ? 0 : 1), 0)
   const maxHints = Math.floor(spellTotal * 0.2)
-  const [quizMode, setQuizMode] = useState<'choice' | 'spell' | 'posconv' | 'mixed'>('choice')
+  const [quizMode, setQuizMode] = useState<QuizMode>('choice')
   const [quizLabel, setQuizLabel] = useState<string>('全部类别')
   const [quizRetest, setQuizRetest] = useState(false)
   const [wordPool, setWordPool] = useState<WordEntry[]>([])
@@ -239,13 +290,19 @@ export function QuizView({ active }: { active: boolean }) {
   const [customSize, setCustomSize] = useState<string>('')
   const [difficulty, setDifficulty] = useState<'classic' | 'hardcore'>('classic')
   const [spellDifficulty, setSpellDifficulty] = useState<'easy' | 'classic'>('classic')
+  const [polyDifficulty, setPolyDifficulty] = useState<'easy' | 'classic' | 'hardcore'>('classic')
+  const [polyInputs, setPolyInputs] = useState<string[]>([])
+  const [polyResults, setPolyResults] = useState<(boolean | null)[]>([])
+  const [polyWrongShake, setPolyWrongShake] = useState(false)
   const [timeLeft, setTimeLeft] = useState(CHOICE_TIME)
   const answeredRef = useRef(false)
   const autoNextRef = useRef<number | null>(null)
   const intervalRef = useRef<number | null>(null)
   const deadlineRef = useRef(0)
   const spellInputRef = useRef<HTMLInputElement>(null)
+  const polyInputRefs = useRef<(HTMLInputElement | null)[]>([])
   const pauseAtRef = useRef<number | null>(null)
+  const polySubmitAtRef = useRef(0)
   const activeMsRef = useRef(0)
   const resumeCheckedRef = useRef(false)
   const seedStartedRef = useRef(false)
@@ -289,8 +346,48 @@ export function QuizView({ active }: { active: boolean }) {
     return `${names.length}个类别`
   }, [selectedCats, categories])
 
+  const polysemyGroupCount = useMemo(() => {
+    const groups = new Map<string, Set<number>>()
+    for (const w of allWords) {
+      if (w.id == null) continue
+      const seen = new Set<string>()
+      for (const m of w.meanings) {
+        const key = m.meaning.trim()
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        let g = groups.get(key)
+        if (!g) { g = new Set(); groups.set(key, g) }
+        g.add(w.id)
+      }
+    }
+    let count = 0
+    for (const g of groups.values()) if (g.size >= 2) count++
+    return count
+  }, [allWords])
+
+  const beginQuiz = useCallback((qs: QuizQuestion[], qm: QuizMode, label: string, retest: boolean) => {
+    setQuestions(qs)
+    setQuizMode(qm)
+    setQuizLabel(label)
+    setQuizRetest(retest)
+    setMode(qm)
+    setIndex(0)
+    setSelected(null)
+    setSpellInput('')
+    setSpellConfirm(false)
+    setFeedback(null)
+    setStats({ correct: 0, total: 0 })
+    setWrongItems([])
+    setHintedSet(new Set())
+    setPolyInputs([])
+    setPolyResults([])
+    setPolyWrongShake(false)
+    answeredRef.current = false
+    activeMsRef.current = 0
+  }, [])
+
   const startQuiz = useCallback(
-    async (qm: 'choice' | 'spell' | 'posconv' | 'mixed', pool?: WordEntry[], mixedModes?: ('choice' | 'spell' | 'posconv')[], retest?: boolean, spDiff?: 'easy' | 'classic', wordSpellDiff?: Record<number, 'easy' | 'classic'>) => {
+    async (qm: QuizMode, pool?: WordEntry[], mixedModes?: Mistake['mode'][], retest?: boolean, spDiff?: 'easy' | 'classic', wordSpellDiff?: Record<number, 'easy' | 'classic'>) => {
       const effSpellDiff = spDiff ?? spellDifficulty
       if (spDiff) setSpellDifficulty(spDiff)
       const diffFor = (w: WordEntry): 'easy' | 'classic' => {
@@ -298,21 +395,7 @@ export function QuizView({ active }: { active: boolean }) {
         return effSpellDiff
       }
       const begin = (qs: QuizQuestion[]) => {
-        setQuestions(qs)
-        setQuizMode(qm)
-        setQuizLabel(retest ? '错题重默' : pool ? '卡片选词' : quizCategoryLabel)
-        setQuizRetest(!!retest)
-        setMode(qm)
-        setIndex(0)
-        setSelected(null)
-        setSpellInput('')
-        setSpellConfirm(false)
-        setFeedback(null)
-        setStats({ correct: 0, total: 0 })
-        setWrongItems([])
-        setHintedSet(new Set())
-        answeredRef.current = false
-        activeMsRef.current = 0
+        beginQuiz(qs, qm, retest ? '错题重默' : pool ? '卡片选词' : quizCategoryLabel, !!retest)
       }
       if (qm === 'mixed') {
         if (!pool || pool.length === 0) return
@@ -332,6 +415,19 @@ export function QuizView({ active }: { active: boolean }) {
         }
         if (qs.length === 0) return
         begin(qs)
+        return
+      }
+      if (qm === 'polysemy') {
+        const source = pool ?? allWords
+        if (source.length === 0) return
+        let polyQs = buildPolysemyQuestions(source, polyDifficulty)
+        if (pool) {
+          // retest path: keep only groups that contain a pool word, cap required
+        }
+        const size = pool ? polyQs.length : (quizSize === SIZE_ALL ? polyQs.length : Math.min(quizSize, polyQs.length))
+        polyQs = polyQs.slice(0, size)
+        if (polyQs.length === 0) return
+        begin(polyQs)
         return
       }
       let source = pool ?? allWords
@@ -355,7 +451,7 @@ export function QuizView({ active }: { active: boolean }) {
       }
       begin(qs)
     },
-    [allWords, wordPool, quizSize, quizCategoryLabel, difficulty, spellDifficulty],
+    [allWords, wordPool, quizSize, quizCategoryLabel, difficulty, spellDifficulty, polyDifficulty, beginQuiz],
   )
 
   const next = useCallback(() => {
@@ -368,6 +464,9 @@ export function QuizView({ active }: { active: boolean }) {
     setSpellInput('')
     setSpellConfirm(false)
     setFeedback(null)
+    setPolyInputs([])
+    setPolyResults([])
+    setPolyWrongShake(false)
     if (index + 1 >= questions.length) {      setMode('result')
     } else {
       setIndex((i) => i + 1)
@@ -388,9 +487,28 @@ export function QuizView({ active }: { active: boolean }) {
     const q = questions[index]
     if (!q) return
     const word = q.word
-    const correctAns = 'options' in q ? q.options[q.answer] : word.text
     const qMode = questionMode(q)
-    const spDiff = !('options' in q) ? (q.hint ? 'easy' : 'classic') : undefined
+    if (qMode === 'polysemy' && 'kind' in q && q.kind === 'polysemy') {
+      const correctAns = q.answerTexts.join(' / ')
+      const polyVals = Array.from({ length: q.required }, (_, i) => (polyInputRefs.current[i]?.value ?? '').replace(/[^\x20-\x7E]/g, '').trim()).filter(Boolean)
+      const userAns = polyVals.length > 0 ? polyVals.join(' / ') : '（超时未答）'
+      const correct = false
+      setFeedback({ correct, correctAns, timedOut: true })
+      setStats((s) => ({ correct: s.correct, total: s.total + 1 }))
+      for (const w of q.words) markQuizResult(w.id!, false, qMode)
+      setWrongItems((prev) => [...prev, {
+        word,
+        correctAns,
+        userAns,
+        timedOut: true,
+        mode: qMode,
+        poly: { meaning: q.meaning, answerTexts: q.answerTexts, required: q.required },
+      }])
+      autoNextRef.current = window.setTimeout(() => next(), 3000)
+      return
+    }
+    const correctAns = 'options' in q ? q.options[q.answer] : word.text
+    const spDiff = !('options' in q) && !('kind' in q) ? (q.hint ? 'easy' : 'classic') : undefined
     setFeedback({ correct: false, correctAns, timedOut: true })
     setStats((s) => ({ correct: s.correct, total: s.total + 1 }))
     markQuizResult(word.id!, false, qMode)
@@ -421,15 +539,16 @@ export function QuizView({ active }: { active: boolean }) {
       window.clearInterval(intervalRef.current)
       intervalRef.current = null
     }
-    if (mode !== 'choice' && mode !== 'spell' && mode !== 'posconv' && mode !== 'mixed') return
+    if (mode !== 'choice' && mode !== 'spell' && mode !== 'posconv' && mode !== 'polysemy' && mode !== 'mixed') return
     if (feedback) return
     if (!active) {
       if (pauseAtRef.current === null) pauseAtRef.current = Date.now()
       return
     }
     const curQ = questions[index]
-    const isSpellQ = curQ ? !('options' in curQ) : mode === 'spell'
-    const limit = isSpellQ ? SPELL_TIME : (mode === 'choice' && difficulty === 'hardcore' ? 10 : CHOICE_TIME)
+    const isPoly = curQ ? ('kind' in curQ && curQ.kind === 'polysemy') : mode === 'polysemy'
+    const isSpellQ = curQ ? (!('options' in curQ) && !isPoly) : mode === 'spell'
+    const limit = isPoly ? POLY_TIME : isSpellQ ? SPELL_TIME : (mode === 'choice' && difficulty === 'hardcore' ? 10 : CHOICE_TIME)
     if (pauseAtRef.current !== null) {
       deadlineRef.current += Date.now() - pauseAtRef.current
       pauseAtRef.current = null
@@ -462,8 +581,8 @@ export function QuizView({ active }: { active: boolean }) {
 
   useEffect(() => {
     const q = questions[index]
-    const isSpellQ = q ? !('options' in q) : mode === 'spell'
-    if (isSpellQ && !feedback && spellInputRef.current) {
+    const isTextQ = q ? !('options' in q) : (mode === 'spell' || mode === 'polysemy')
+    if (isTextQ && !feedback && spellInputRef.current) {
       spellInputRef.current.focus()
     }
   }, [mode, questions, index, feedback])
@@ -471,7 +590,7 @@ export function QuizView({ active }: { active: boolean }) {
   useEffect(() => {
     if (!feedback) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !e.repeat && Date.now() - polySubmitAtRef.current > 800) {
         e.preventDefault()
         if (autoNextRef.current !== null) window.clearTimeout(autoNextRef.current)
         next()
@@ -500,6 +619,9 @@ export function QuizView({ active }: { active: boolean }) {
         setQuizSize(saved.quizSize)
         setQuizRetest(saved.quizRetest ?? (saved.quizLabel === '错题重测' || saved.quizLabel === '错题重默'))
         if (saved.spellDifficulty) setSpellDifficulty(saved.spellDifficulty)
+        if (saved.polyDifficulty) setPolyDifficulty(saved.polyDifficulty)
+        setPolyInputs(saved.polyInputs ?? [])
+        setPolyResults(saved.polyResults ?? [])
         activeMsRef.current = saved.activeMs
         if (saved.feedback) {
           if (saved.index + 1 >= saved.questions.length) {
@@ -527,7 +649,7 @@ export function QuizView({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!resumeCheckedRef.current) return
-    if (mode === 'choice' || mode === 'spell' || mode === 'posconv' || mode === 'mixed') {
+    if (mode === 'choice' || mode === 'spell' || mode === 'posconv' || mode === 'polysemy' || mode === 'mixed') {
       saveQuizState({
         mode,
         questions,
@@ -542,11 +664,14 @@ export function QuizView({ active }: { active: boolean }) {
         feedback,
         hinted: [...hintedSet],
         spellDifficulty,
+        polyDifficulty,
+        polyInputs,
+        polyResults,
       })
     } else if (mode === 'result' || mode === 'menu') {
       clearQuizState()
     }
-  }, [mode, questions, index, stats, wrongItems, quizMode, quizLabel, quizSize, quizRetest, feedback, hintedSet, spellDifficulty])
+  }, [mode, questions, index, stats, wrongItems, quizMode, quizLabel, quizSize, quizRetest, feedback, hintedSet, spellDifficulty, polyDifficulty, polyInputs, polyResults])
 
   useEffect(() => {
     if (quizSeed && quizSeed.words.length > 0) {
@@ -554,9 +679,31 @@ export function QuizView({ active }: { active: boolean }) {
       seedStartedRef.current = true
       setStarting(true)
       clearQuizSeed()
+      if (seed.mode === 'polysemy' && seed.polyRetest && seed.polyRetest.length > 0) {
+        const polyQs: PolysemyQuestion[] = []
+        for (let i = 0; i < seed.words.length; i++) {
+          const w = seed.words[i]
+          const p = seed.polyRetest[i]
+          if (!w || !p) continue
+          polyQs.push({
+            kind: 'polysemy',
+            word: w,
+            meaning: p.meaning,
+            answers: p.answerTexts.map((t) => t.toLowerCase()),
+            answerTexts: p.answerTexts,
+            required: p.required,
+            words: [w],
+          })
+        }
+        if (polyQs.length > 0) {
+          beginQuiz(polyQs, 'polysemy', '错题重默', true)
+        }
+        setStarting(false)
+        return
+      }
       void startQuiz(seed.mode, seed.words, seed.mixedModes, seed.retest, seed.spellDifficulty ?? 'classic', seed.wordSpellDiff).finally(() => setStarting(false))
     }
-  }, [quizSeed, startQuiz, clearQuizSeed])
+  }, [quizSeed, startQuiz, clearQuizSeed, beginQuiz])
 
   const sessionSavedRef = useRef(false)
   useEffect(() => {
@@ -579,6 +726,7 @@ export function QuizView({ active }: { active: boolean }) {
       mode: w.mode ?? (quizMode === 'mixed' ? 'choice' : quizMode),
       timedOut: w.timedOut,
       spellDifficulty: w.spellDifficulty,
+      poly: w.poly,
     }))
     void saveQuizSession({
       date: Date.now(),
@@ -643,7 +791,7 @@ export function QuizView({ active }: { active: boolean }) {
     (e?: React.FormEvent) => {
       e?.preventDefault()
       const q = questions[index]
-      if (feedback || !q || 'options' in q) return
+      if (feedback || !q || 'options' in q || 'kind' in q) return
       if (!spellConfirm) {
         setSpellConfirm(true)
         return
@@ -680,6 +828,67 @@ export function QuizView({ active }: { active: boolean }) {
     },
     [feedback, questions, index, spellConfirm, spellInput, markQuizResult, resolveMistake, recordMistake, next],
   )
+
+  const handlePolySubmit = useCallback(
+    (e?: React.FormEvent) => {
+      e?.preventDefault()
+      const q = questions[index]
+      if (feedback || !q || !('kind' in q) || q.kind !== 'polysemy') return
+      const n = q.required
+      const inputs = Array.from({ length: n }, (_, i) => {
+        const el = polyInputRefs.current[i]
+        return (el?.value ?? '').replace(/[^\x20-\x7E]/g, '').trim().toLowerCase()
+      })
+      const used = new Set<number>()
+      const results: (boolean | null)[] = inputs.map((inp) => {
+        if (!inp) return false
+        const idx = q.answers.findIndex((a, j) => a === inp && !used.has(j))
+        if (idx >= 0) {
+          used.add(idx)
+          return true
+        }
+        return false
+      })
+      setPolyResults(results)
+      const correctCount = results.filter(Boolean).length
+      const correct = correctCount >= q.required
+      answeredRef.current = true
+      polySubmitAtRef.current = Date.now()
+      const correctAns = q.answerTexts.join(' / ')
+      const userAns = inputs.filter(Boolean).length > 0 ? inputs.filter(Boolean).join(' / ') : '（空）'
+      setFeedback({ correct, correctAns })
+      setStats((s) => ({ correct: s.correct + (correct ? 1 : 0), total: s.total + 1 }))
+      for (const w of q.words) markQuizResult(w.id!, correct, 'polysemy')
+      if (!correct) {
+        setWrongItems((prev) => [...prev, {
+          word: q.word,
+          correctAns,
+          userAns,
+          timedOut: false,
+          mode: 'polysemy',
+          poly: { meaning: q.meaning, answerTexts: q.answerTexts, required: q.required },
+        }])
+      }
+      if (autoNextRef.current !== null) window.clearTimeout(autoNextRef.current)
+      autoNextRef.current = window.setTimeout(() => next(), correct ? 1000 : 3000)
+    },
+    [feedback, questions, index, markQuizResult, next],
+  )
+
+  useEffect(() => {
+    if (!polyWrongShake) return
+    const t = window.setTimeout(() => setPolyWrongShake(false), 500)
+    return () => window.clearTimeout(t)
+  }, [polyWrongShake])
+
+  useEffect(() => {
+    const q = questions[index]
+    if (q && 'kind' in q && q.kind === 'polysemy' && !feedback) {
+      const n = q.required
+      setPolyInputs((prev) => (prev.length === n ? prev : Array(n).fill('')))
+      setPolyResults((prev) => (prev.length === n ? prev : Array(n).fill(null)))
+    }
+  }, [questions, index, feedback])
 
   useEffect(() => {
     if (mode === 'result' || mode === 'menu') return
@@ -730,7 +939,7 @@ export function QuizView({ active }: { active: boolean }) {
     const noWordsInSelection = !noSelection && allWords.length === 0
     const canStart = !noSelection && !noWordsInSelection
     return (
-      <Page title="开始测验" icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" description="选择题 / 拼写测试 / 词性转换">
+      <Page title="开始测验" icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" description="选择题 / 拼写测试 / 一词多译 / 词性转换">
         <div className="card p-4 mb-6">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2 block">词库类别（可多选）</label>
           <CategoryMultiSelect
@@ -854,6 +1063,48 @@ export function QuizView({ active }: { active: boolean }) {
           </button>
 
           <button
+            onClick={() => startQuiz('polysemy')}
+            disabled={!canStart || polysemyGroupCount === 0}
+            className={clsx('card p-6 text-left transition-all', canStart && polysemyGroupCount > 0 ? 'hover:border-brand-400 hover:shadow-md active:scale-[0.98]' : 'opacity-40 cursor-not-allowed')}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center">
+                <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h10M7 16h6M3 8h0M3 12h0M3 16h0" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-gray-900 dark:text-gray-50">一词多译</p>
+                <p className="text-xs text-gray-400">
+                  {canStart && polysemyGroupCount === 0
+                    ? '所选词库暂无一词多译条件（需至少 2 个词共用同一释义）'
+                    : `${polyDifficulty === 'easy' ? '轻松 · 写对 1 个' : polyDifficulty === 'classic' ? '经典 · 写对 2 个' : '硬核 · 写对 3 个'}（相同释义多词${polysemyGroupCount > 0 ? `，共 ${polysemyGroupCount} 组` : ''}）`}
+                </p>
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setPolyDifficulty('easy')}
+                  className={clsx('rounded-lg px-2.5 py-1 text-xs font-medium transition-colors', polyDifficulty === 'easy' ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400')}
+                >
+                  轻松
+                </button>
+                <button
+                  onClick={() => setPolyDifficulty('classic')}
+                  className={clsx('rounded-lg px-2.5 py-1 text-xs font-medium transition-colors', polyDifficulty === 'classic' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400')}
+                >
+                  经典
+                </button>
+                <button
+                  onClick={() => setPolyDifficulty('hardcore')}
+                  className={clsx('rounded-lg px-2.5 py-1 text-xs font-medium transition-colors', polyDifficulty === 'hardcore' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400')}
+                >
+                  硬核
+                </button>
+              </div>
+            </div>
+          </button>
+
+          <button
             onClick={() => startQuiz('posconv')}
             disabled={!canStart}
             className={clsx('card p-6 text-left transition-all', canStart ? 'hover:border-brand-400 hover:shadow-md active:scale-[0.98]' : 'opacity-40 cursor-not-allowed')}
@@ -880,7 +1131,7 @@ export function QuizView({ active }: { active: boolean }) {
     const correct = stats.correct
     const wrong = total - correct
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0
-    const modeLabel = quizRetest ? '错题重默' : quizMode === 'choice' ? '选择题' : quizMode === 'spell' ? (spellDifficulty === 'easy' ? '拼写测试·轻松' : '拼写测试') : '词性转换'
+    const modeLabel = quizRetest ? '错题重默' : quizMode === 'choice' ? '选择题' : quizMode === 'spell' ? (spellDifficulty === 'easy' ? '拼写测试·轻松' : '拼写测试') : quizMode === 'polysemy' ? `一词多译·${polyDifficulty === 'easy' ? '轻松' : polyDifficulty === 'classic' ? '经典' : '硬核'}` : '词性转换'
     const grade = gradeOf(accuracy)
     const resultTotalPages = Math.max(1, Math.ceil(wrongItems.length / RESULT_PAGE_SIZE))
     const resultCurrentPage = Math.min(page, resultTotalPages)
@@ -1020,6 +1271,22 @@ export function QuizView({ active }: { active: boolean }) {
           {wrongItems.length > 0 && (
             <button
               onClick={() => {
+                if (quizMode === 'polysemy') {
+                  const polyQs: PolysemyQuestion[] = wrongItems
+                    .filter((w) => w.poly)
+                    .map((w) => ({
+                      kind: 'polysemy' as const,
+                      word: w.word,
+                      meaning: w.poly!.meaning,
+                      answers: w.poly!.answerTexts.map((t) => t.toLowerCase()),
+                      answerTexts: w.poly!.answerTexts,
+                      required: w.poly!.required,
+                      words: [w.word],
+                    }))
+                  if (polyQs.length === 0) return
+                  beginQuiz(polyQs, 'polysemy', '错题重默', true)
+                  return
+                }
                 const wsDiff: Record<number, 'easy' | 'classic'> = {}
                 for (const w of wrongItems) {
                   if (w.spellDifficulty && w.word.id != null) wsDiff[w.word.id] = w.spellDifficulty
@@ -1105,6 +1372,119 @@ export function QuizView({ active }: { active: boolean }) {
             )
           })}
         </div>
+
+        {feedback && <FeedbackBar correct={feedback.correct} correctAns={feedback.correctAns} timedOut={feedback.timedOut} onNext={next} />}
+      </div>
+    )
+  }
+
+  // polysemy mode
+  if (curQ && 'kind' in curQ && curQ.kind === 'polysemy') {
+    const pq = curQ
+    const n = pq.required
+    const boxes = polyInputs.length === n ? polyInputs : Array(n).fill('')
+    return (
+      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-4 sm:px-6 py-6 animate-fade-in">
+        <div className="flex justify-end mb-1">
+          <button onClick={endQuiz} className="text-xs text-gray-400 hover:text-red-500">结束测验</button>
+        </div>
+        <ProgressBar value={progress} index={index} total={questions.length} correct={stats.correct} />
+        <TimerBar timeLeft={timeLeft} limit={POLY_TIME} />
+        <div className="card p-6 mb-4 text-center">
+          <p className="text-xs text-gray-400 mb-2">
+            一词多译 · 请写出 <b className="text-teal-600">{n}</b> 个英文（共 {pq.answerTexts.length} 个答案）
+          </p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{pq.meaning}</p>
+        </div>
+
+        <div key={index} className="space-y-2">
+            {boxes.map((val, i) => {
+              const res = polyResults.length === n ? polyResults[i] : null
+              return (
+                <div key={i} className="flex gap-2 items-center">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">{i + 1}</span>
+                  <input
+                    ref={(el: HTMLInputElement | null) => { polyInputRefs.current[i] = el; if (i === 0) spellInputRef.current = el }}
+                    type="text"
+                    value={val}
+                    disabled={!!feedback}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (i < n - 1) {
+                          polyInputRefs.current[i + 1]?.focus()
+                        } else {
+                          handlePolySubmit()
+                        }
+                      }
+                    }}
+                    onBeforeInput={(e) => {
+                      const native = e.nativeEvent as unknown as { inputType?: string; data?: string | null }
+                      if (native.inputType?.startsWith('insert') && native.data && native.data.length > 1) {
+                        e.preventDefault()
+                      }
+                    }}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^\x20-\x7E]/g, '')
+                      setPolyInputs((prev) => {
+                        const arr = prev.length === n ? [...prev] : Array(n).fill('')
+                        arr[i] = v
+                        return arr
+                      })
+                      setPolyResults((prev) => {
+                        const arr = prev.length === n ? [...prev] : Array(n).fill(null)
+                        arr[i] = null
+                        return arr
+                      })
+                    }}
+                    onCompositionStart={(e) => {
+                      setImeComposing(true)
+                      e.currentTarget.blur()
+                    }}
+                    onCompositionEnd={(e) => {
+                      setImeComposing(false)
+                      const v = e.currentTarget.value.replace(/[^\x20-\x7E]/g, '')
+                      setPolyInputs((prev) => {
+                        const arr = prev.length === n ? [...prev] : Array(n).fill('')
+                        arr[i] = v
+                        return arr
+                      })
+                    }}
+                    onFocus={() => { setSpellFocused(true); setImeComposing(false) }}
+                    onBlur={() => setSpellFocused(false)}
+                    autoFocus={i === 0}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    inputMode="text"
+                    name={`poly-answer-${i}`}
+                    aria-label={`一词多译输入 ${i + 1}`}
+                    lang="en"
+                    placeholder={`英文 ${i + 1}`}
+                    className={clsx(
+                      'flex-1 rounded-xl border-2 px-4 py-3 text-sm min-h-[44px] transition-colors outline-none text-gray-900 dark:text-gray-50',
+                      res === true
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                        : res === false
+                          ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
+                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800',
+                    )}
+                  />
+                  {res === true && (
+                    <span className="flex-shrink-0 text-green-600 text-sm font-bold">✓</span>
+                  )}
+                </div>
+              )
+            })}
+            {!feedback && <button type="button" onClick={() => handlePolySubmit()} className="btn-primary w-full mt-2">提交</button>}
+          </div>
+
+        {imeComposing && (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 animate-slide-up">
+            已拦截中文输入法联想。请按 Shift 切换到英文输入法，然后点击输入框继续
+          </p>
+        )}
 
         {feedback && <FeedbackBar correct={feedback.correct} correctAns={feedback.correctAns} timedOut={feedback.timedOut} onNext={next} />}
       </div>

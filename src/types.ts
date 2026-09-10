@@ -68,7 +68,7 @@ export interface Mistake {
   categoryId: number
   userAnswer: string
   correctAnswer: string
-  mode: 'choice' | 'spell' | 'posconv'
+  mode: 'choice' | 'spell' | 'posconv' | 'polysemy'
   timedOut: boolean
   resolved: boolean
   createdAt: number
@@ -82,15 +82,16 @@ export interface WrongRecord {
   categoryId: number
   correctAnswer: string
   userAnswer: string
-  mode: 'choice' | 'spell' | 'posconv'
+  mode: 'choice' | 'spell' | 'posconv' | 'polysemy'
   timedOut: boolean
   spellDifficulty?: 'easy' | 'classic'
+  poly?: { meaning: string; answerTexts: string[]; required: number }
 }
 
 export interface QuizSession {
   id?: number
   date: number
-  mode: 'choice' | 'spell' | 'posconv' | 'mixed'
+  mode: 'choice' | 'spell' | 'posconv' | 'polysemy' | 'mixed'
   total: number
   correct: number
   score: number
