@@ -303,7 +303,7 @@ export function StatsView() {
       arr.push(c)
       m.set(key, arr)
     }
-    for (const arr of m.values()) arr.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+    for (const arr of m.values()) arr.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
     return m
   }, [categories])
 

@@ -35,6 +35,9 @@ interface StoreState {
   createCategory: (name: string, parentId: number | null) => Promise<number>
   renameCategory: (categoryId: number, newName: string) => Promise<void>
   deleteCategory: (categoryId: number) => Promise<void>
+  moveCategory: (categoryId: number, newParentId: number | null) => Promise<void>
+  swapCategoryOrder: (id1: number, id2: number) => Promise<void>
+  mergeCategories: (sourceId: number, targetId: number) => Promise<void>
   updateWord: (wordId: number, data: { text: string; meanings: WordMeaning[] }) => Promise<void>
   setStarred: (wordId: number, starred: boolean) => Promise<void>
   deleteWord: (wordId: number) => Promise<void>
@@ -134,6 +137,32 @@ export const useStore = create<StoreState>((set, get) => ({
       throw new Error('该词库下还有单词，无法删除')
     }
     await repo.repoDeleteCategory(categoryId)
+    get().refresh()
+  },
+
+  moveCategory: async (categoryId, newParentId) => {
+    if (categoryId === newParentId) throw new Error('不能移动到自身')
+    const cats = await repo.repoCategories()
+    if (newParentId !== null) {
+      if (!cats.some((c) => c.id === newParentId)) throw new Error('目标词库不存在')
+      const desc = getDescendantIds(cats, categoryId)
+      if (desc.includes(newParentId)) throw new Error('不能移动到自身的子词库下')
+    }
+    await repo.repoUpdateCategoryParent(categoryId, newParentId)
+    get().refresh()
+  },
+
+  swapCategoryOrder: async (id1, id2) => {
+    await repo.repoSwapCategoryOrder(id1, id2)
+    get().refresh()
+  },
+
+  mergeCategories: async (sourceId, targetId) => {
+    if (sourceId === targetId) throw new Error('不能合并到自身')
+    const cats = await repo.repoCategories()
+    if (!cats.some((c) => c.id === targetId)) throw new Error('目标词库不存在')
+    if (cats.some((c) => c.parentId === sourceId)) throw new Error('源词库下还有子词库，请先处理子词库')
+    await repo.repoMergeCategories(sourceId, targetId)
     get().refresh()
   },
 

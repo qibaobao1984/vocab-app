@@ -12,6 +12,7 @@ import { Page } from './Page'
 import { EmptyState } from './EmptyState'
 import { WordDetail } from './WordDetail'
 import { Pagination } from './Pagination'
+import { CategoryTreeDialog } from './CategoryTreeDialog'
 import type { WordEntry, SrsCard, Category } from '../types'
 import clsx from 'clsx'
 
@@ -66,6 +67,7 @@ export function CardsView() {
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [spellMenuOpen, setSpellMenuOpen] = useState(false)
+  const [treeDialogOpen, setTreeDialogOpen] = useState(false)
   const [detailWord, setDetailWord] = useState<WordEntry | null>(null)
   const PAGE_SIZE = 12
 
@@ -454,14 +456,22 @@ export function CardsView() {
         )}
       </div>
 
-      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-gray-400">共 {filtered.length} 词</p>
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div className="flex items-center gap-2 min-h-[28px]">
+          <span className="text-xs text-gray-400">共 {filtered.length} 词</span>
+          {dueCount > 0 && (
+            <button
+              onClick={() => setActiveTab('review')}
+              className="text-xs text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 px-2 py-1 rounded-lg transition-colors font-medium"
+            >
+              {dueCount} 词待复习 →
+            </button>
+          )}
           {selectMode && (
             <button
               type="button"
               onClick={() => toggleSelectAllOnPage(pageIds)}
-              className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none"
+              className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none ml-1"
             >
               <span
                 className={clsx(
@@ -484,7 +494,7 @@ export function CardsView() {
           )}
           {selectMode && <span className="text-xs text-gray-400">已选 {selected.size} 项</span>}
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-1.5 items-center">
           {selectMode ? (
             <>
               <div className="relative">
@@ -534,18 +544,18 @@ export function CardsView() {
             </>
           ) : (
             <>
-              {dueCount > 0 && (
+              {categories.length > 0 && (
                 <button
-                  onClick={() => setActiveTab('review')}
-                  className="text-xs text-white bg-brand-600 hover:bg-brand-700 px-2.5 py-1 rounded-lg transition-colors font-medium"
+                  onClick={() => setTreeDialogOpen(true)}
+                  className="text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 px-2.5 py-1 rounded-lg transition-colors"
                 >
-                  {dueCount} 词待复习 →
+                  整理词库
                 </button>
               )}
               {items.length > 0 && (
                 <button
                   onClick={() => setSelectMode(true)}
-                  className="text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
+                  className="text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 px-2.5 py-1 rounded-lg transition-colors"
                 >
                   多选
                 </button>
@@ -560,7 +570,7 @@ export function CardsView() {
                       count: selectedCatCount,
                     })
                   }
-                  className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-lg transition-colors"
+                  className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2.5 py-1 rounded-lg transition-colors"
                 >
                   清空所选词库（{selectedCatCount}）
                 </button>
@@ -568,7 +578,7 @@ export function CardsView() {
               {items.length > 0 && (
                 <button
                   onClick={() => setDeleteTarget({ kind: 'all', count: items.length })}
-                  className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-lg transition-colors"
+                  className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-2.5 py-1 rounded-lg transition-colors"
                 >
                   清空全部
                 </button>
@@ -841,6 +851,7 @@ export function CardsView() {
           onClose={() => setDetailWord(null)}
         />
       )}
+      <CategoryTreeDialog open={treeDialogOpen} onClose={() => setTreeDialogOpen(false)} />
     </Page>
   )
 }

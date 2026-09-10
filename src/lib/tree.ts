@@ -16,7 +16,7 @@ export function getTreeNodes(categories: Category[]): TreeNode[] {
     byParent.set(key, arr)
   }
   for (const arr of byParent.values()) {
-    arr.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+    arr.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
   }
 
   const result: TreeNode[] = []

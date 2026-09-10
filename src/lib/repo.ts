@@ -423,6 +423,80 @@ export function repoUpdateCategoryName(id: number, name: string): Promise<void> 
   )
 }
 
+export function repoUpdateCategoryParent(id: number, parentId: number | null): Promise<void> {
+  return withFallback(
+    async () => {
+      const { error } = await supabase!.from('categories').update({ parent_id: parentId }).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    async () => {
+      await db.categories.update(id, { parentId })
+    },
+  )
+}
+
+export async function repoSwapCategoryOrder(id1: number, id2: number): Promise<void> {
+  const [c1, c2] = await Promise.all([repoGetCategory(id1), repoGetCategory(id2)])
+  if (!c1 || !c2) throw new Error('词库不存在')
+  const t1 = c1.createdAt
+  const t2 = c2.createdAt
+  return withFallback(
+    async () => {
+      const { error: e1 } = await supabase!.from('categories').update({ created_at: t2 }).eq('id', id1)
+      if (e1) throw new Error(e1.message)
+      const { error: e2 } = await supabase!.from('categories').update({ created_at: t1 }).eq('id', id2)
+      if (e2) throw new Error(e2.message)
+    },
+    async () => {
+      await db.transaction('rw', db.categories, async () => {
+        await db.categories.update(id1, { createdAt: t2 })
+        await db.categories.update(id2, { createdAt: t1 })
+      })
+    },
+  )
+}
+
+export async function repoMergeCategories(sourceId: number, targetId: number): Promise<void> {
+  return withFallback(
+    async () => {
+      const { data: words, error } = await supabase!.from('words').select('*')
+      if (error) throw new Error(error.message)
+      for (const w of (words ?? []) as Array<{ id: number; meanings: WordMeaning[] }>) {
+        if (!w.meanings.some((m) => m.categoryId === sourceId)) continue
+        const newMeanings = w.meanings.map((m) =>
+          m.categoryId === sourceId ? { ...m, categoryId: targetId } : m
+        )
+        const deduped = newMeanings.filter((m, i, arr) =>
+          i === arr.findIndex((x) => x.categoryId === m.categoryId && x.meaning === m.meaning)
+        )
+        const { error: ue } = await supabase!.from('words').update({ meanings: deduped }).eq('id', w.id)
+        if (ue) throw new Error(ue.message)
+      }
+      const { error: de } = await supabase!.from('mistakes').delete().eq('category_id', sourceId)
+      if (de) throw new Error(de.message)
+      const { error: ce } = await supabase!.from('categories').delete().eq('id', sourceId)
+      if (ce) throw new Error(ce.message)
+    },
+    async () => {
+      await db.transaction('rw', db.words, db.mistakes, db.categories, async () => {
+        const allWords = await db.words.toArray()
+        for (const w of allWords) {
+          if (!w.meanings.some((m) => m.categoryId === sourceId)) continue
+          const newMeanings = w.meanings.map((m) =>
+            m.categoryId === sourceId ? { ...m, categoryId: targetId } : m
+          )
+          const deduped = newMeanings.filter((m, i, arr) =>
+            i === arr.findIndex((x) => x.categoryId === m.categoryId && x.meaning === m.meaning)
+          )
+          await db.words.update(w.id!, { meanings: deduped })
+        }
+        await db.mistakes.where('categoryId').equals(sourceId).delete()
+        await db.categories.delete(sourceId)
+      })
+    },
+  )
+}
+
 export function repoDeleteCategory(id: number): Promise<void> {
   return withFallback(
     async () => {

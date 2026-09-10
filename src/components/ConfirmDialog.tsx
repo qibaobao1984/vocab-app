@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import clsx from 'clsx'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -7,6 +8,8 @@ interface ConfirmDialogProps {
   confirmText?: string
   cancelText?: string
   checkboxLabel?: string
+  busyText?: string
+  danger?: boolean
   onConfirm: () => void | Promise<void>
   onCancel: () => void
 }
@@ -15,9 +18,11 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmText = '确认删除',
+  confirmText = '确认',
   cancelText = '取消',
   checkboxLabel,
+  busyText,
+  danger = true,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -57,8 +62,8 @@ export function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 mb-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
-            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <div className={clsx('flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center', danger ? 'bg-red-100 dark:bg-red-900/40' : 'bg-brand-100 dark:bg-brand-900/40')}>
+            <svg className={clsx('w-5 h-5', danger ? 'text-red-600' : 'text-brand-600')} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
             </svg>
           </div>
@@ -89,9 +94,9 @@ export function ConfirmDialog({
           <button
             onClick={handleConfirm}
             disabled={!canConfirm || busy}
-            className="btn flex-1 bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className={clsx('btn flex-1 text-white disabled:opacity-40 disabled:cursor-not-allowed', danger ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-600 hover:bg-brand-700')}
           >
-            {busy ? '删除中...' : confirmText}
+            {busy ? (busyText ?? '处理中...') : confirmText}
           </button>
         </div>
       </div>
