@@ -39,6 +39,19 @@ function questionMode(q: QuizQuestion): 'choice' | 'spell' | 'posconv' | 'polyse
   if ('kind' in q) return 'polysemy'
   return 'spell'
 }
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length
+}
+
+function isPhrase(text: string): boolean {
+  return wordCount(text) > 1
+}
+
+function spellTimeFor(text: string): number {
+  const wc = wordCount(text)
+  return SPELL_TIME + Math.max(0, Math.floor((wc - 1) / 3) * 30)
+}
+
 function firstLetterHint(text: string): string {
   return text
     .trim()
@@ -533,7 +546,7 @@ export function QuizView({ active }: { active: boolean }) {
       timedOut: true,
       spellDifficulty: spDiff,
     })
-    autoNextRef.current = window.setTimeout(() => next(), 3000)
+    autoNextRef.current = window.setTimeout(() => next(), qMode === 'spell' && isPhrase(word.text) ? 5000 : 3000)
   }
   const handleTimeoutRef = useRef(handleTimeout)
   handleTimeoutRef.current = handleTimeout
@@ -552,7 +565,7 @@ export function QuizView({ active }: { active: boolean }) {
     const curQ = questions[index]
     const isPoly = curQ ? ('kind' in curQ && curQ.kind === 'polysemy') : mode === 'polysemy'
     const isSpellQ = curQ ? (!('options' in curQ) && !isPoly) : mode === 'spell'
-    const limit = isPoly ? POLY_TIME : isSpellQ ? SPELL_TIME : (mode === 'choice' && difficulty === 'hardcore' ? 10 : CHOICE_TIME)
+    const limit = isPoly ? POLY_TIME : isSpellQ ? (curQ ? spellTimeFor(curQ.word.text) : SPELL_TIME) : (mode === 'choice' && difficulty === 'hardcore' ? 10 : CHOICE_TIME)
     if (pauseAtRef.current !== null) {
       deadlineRef.current += Date.now() - pauseAtRef.current
       pauseAtRef.current = null
@@ -828,7 +841,7 @@ export function QuizView({ active }: { active: boolean }) {
         })
       }
       if (autoNextRef.current !== null) window.clearTimeout(autoNextRef.current)
-      autoNextRef.current = window.setTimeout(() => next(), correct ? 1000 : 3000)
+      autoNextRef.current = window.setTimeout(() => next(), correct ? 1000 : (isPhrase(q.word.text) ? 5000 : 3000))
     },
     [feedback, questions, index, spellConfirm, spellInput, markQuizResult, resolveMistake, recordMistake, next],
   )
@@ -1500,9 +1513,9 @@ export function QuizView({ active }: { active: boolean }) {
         <button onClick={endQuiz} className="text-xs text-gray-400 hover:text-red-500">结束测验</button>
       </div>
       <ProgressBar value={progress} index={index} total={questions.length} correct={stats.correct} />
-      <TimerBar timeLeft={timeLeft} limit={SPELL_TIME} />
+      <TimerBar timeLeft={timeLeft} limit={spellTimeFor(sq.word.text)} />
       <div className="card p-6 mb-4 text-center">
-        <p className="text-xs text-gray-400 mb-2">请拼写下面的{sq.word.text.trim().split(/\s+/).length > 1 ? '词组' : '单词'}</p>
+        <p className="text-xs text-gray-400 mb-2">请拼写下面的{isPhrase(sq.word.text) ? '词组' : '单词'}</p>
         <p className="text-lg text-gray-700 dark:text-gray-200">{wordDisplayMeaning(sq.word)}</p>
         {wordPhonetic(sq.word) && (
           <p className="text-xs text-gray-400 mt-1">/{wordPhonetic(sq.word)}/</p>
