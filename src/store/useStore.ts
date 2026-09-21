@@ -58,8 +58,9 @@ interface StoreState {
   importData: (data: unknown) => Promise<void>
   launchQuizFromWords: (words: WordEntry[], mode: 'choice' | 'spell' | 'posconv' | 'polysemy' | 'mixed', mixedModes?: Mistake['mode'][], retest?: boolean, spellDifficulty?: 'easy' | 'classic', wordSpellDiff?: Record<number, 'easy' | 'classic'>, polyRetest?: { meaning: string; answerTexts: string[]; required: number }[]) => void
   clearQuizSeed: () => void
-  reviewSeed: { categoryIds: number[]; planId?: number } | null
+  reviewSeed: { categoryIds: number[]; planId?: number; wordIds?: number[] } | null
   launchReviewFromPlan: (categoryIds: number[], planId?: number) => void
+  launchReviewFromWords: (wordIds: number[]) => void
   clearReviewSeed: () => void
   refresh: () => void
   clearError: () => void
@@ -89,6 +90,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
   launchReviewFromPlan: (categoryIds, planId) => {
     set({ reviewSeed: { categoryIds, planId }, activeTab: 'review' })
+    get().refresh()
+  },
+
+  launchReviewFromWords: (wordIds) => {
+    set({ reviewSeed: { categoryIds: [], wordIds }, activeTab: 'review' })
     get().refresh()
   },
 

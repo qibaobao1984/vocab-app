@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { repoWords, repoCards, repoCategories, repoMarkLearnedToday } from '../lib/repo'
+import { repoWords, repoCards, repoCategories, repoMarkLearnedToday, repoCardsByWordIds, repoWordsByIds } from '../lib/repo'
 import { useStore } from '../store/useStore'
 import { useDailyGoal } from '../store/dailyGoalStore'
 import { useStudyPlan } from '../store/studyPlanStore'
@@ -73,6 +73,28 @@ export function ReviewView() {
   const loadQueueRef = useRef(loadQueue)
   loadQueueRef.current = loadQueue
 
+  const loadQueueFromWords = useCallback(async (ids: number[]) => {
+    setLoading(true)
+    const [wordMap, cardMap] = await Promise.all([repoWordsByIds(ids), repoCardsByWordIds(ids)])
+    const items: ReviewItem[] = []
+    for (const id of ids) {
+      const w = wordMap.get(id)
+      const c = cardMap.get(id)
+      if (w && c) items.push({ word: w, card: c })
+    }
+    items.sort((a, b) => a.card.dueDate - b.card.dueDate)
+    setQueue(items)
+    setIndex(0)
+    setRevealed(false)
+    completedRef.current = items.length === 0
+    setDone(items.length === 0)
+    setStats({ total: 0 })
+    setLoading(false)
+  }, [])
+
+  const loadQueueFromWordsRef = useRef(loadQueueFromWords)
+  loadQueueFromWordsRef.current = loadQueueFromWords
+
   const startReading = useCallback(async () => {
     const words = selectedCats.size > 0 ? wordPool.filter((w) => w.meanings.some((m) => selectedCats.has(m.categoryId))) : wordPool
     if (words.length === 0) return
@@ -84,18 +106,25 @@ export function ReviewView() {
       setCategories(cats)
       setWordPool(all)
       const seed = useStore.getState().reviewSeed
-      if (seed && seed.categoryIds.length > 0) {
-        const sel = new Set(seed.categoryIds)
-        planIdRef.current = seed.planId
-        setSelectedCats(sel)
-        setStarted(true)
-        void loadQueueRef.current(sel)
+      if (seed && (seed.wordIds?.length || seed.categoryIds.length)) {
+        if (seed.wordIds && seed.wordIds.length > 0) {
+          setStarted(true)
+          void loadQueueFromWordsRef.current(seed.wordIds)
+        } else {
+          const sel = new Set(seed.categoryIds)
+          planIdRef.current = seed.planId
+          setSelectedCats(sel)
+          setStarted(true)
+          void loadQueueRef.current(sel)
+        }
         useStore.getState().clearReviewSeed()
-      } else if (!catInitRef.current && cats.length > 0) {
-        catInitRef.current = true
-        setSelectedCats(new Set())
+      } else {
+        if (!catInitRef.current && cats.length > 0) {
+          catInitRef.current = true
+          setSelectedCats(new Set())
+        }
+        setLoading(false)
       }
-      setLoading(false)
     })
   }, [refreshKey])
 

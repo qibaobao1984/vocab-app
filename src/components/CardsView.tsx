@@ -13,6 +13,7 @@ import { EmptyState } from './EmptyState'
 import { WordDetail } from './WordDetail'
 import { Pagination } from './Pagination'
 import { CategoryTreeDialog } from './CategoryTreeDialog'
+import { ReadingMode } from './ReadingMode'
 import type { WordEntry, SrsCard, Category } from '../types'
 import clsx from 'clsx'
 
@@ -48,6 +49,7 @@ export function CardsView() {
   const renameCategory = useStore((s) => s.renameCategory)
   const deleteCategory = useStore((s) => s.deleteCategory)
   const launchQuizFromWords = useStore((s) => s.launchQuizFromWords)
+  const launchReviewFromWords = useStore((s) => s.launchReviewFromWords)
   const [items, setItems] = useState<JoinedWord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -67,8 +69,10 @@ export function CardsView() {
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [spellMenuOpen, setSpellMenuOpen] = useState(false)
+  const [studyMenuOpen, setStudyMenuOpen] = useState(false)
   const [treeDialogOpen, setTreeDialogOpen] = useState(false)
   const [detailWord, setDetailWord] = useState<WordEntry | null>(null)
+  const [readingWords, setReadingWords] = useState<WordEntry[] | null>(null)
   const PAGE_SIZE = 12
 
   useEffect(() => {
@@ -229,6 +233,7 @@ export function CardsView() {
     setSelectMode(false)
     setSelected(new Set())
     setSpellMenuOpen(false)
+    setStudyMenuOpen(false)
   }
 
   const selectedWords = useMemo(
@@ -498,6 +503,37 @@ export function CardsView() {
         <div className="flex gap-1.5 items-center">
           {selectMode ? (
             <>
+              <div className="relative">
+                <button
+                  onClick={() => setStudyMenuOpen((v) => !v)}
+                  disabled={selected.size === 0}
+                  className="text-xs text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded-lg transition-colors font-medium inline-flex items-center gap-1"
+                >
+                  选词学习（{selected.size}）
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {studyMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setStudyMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
+                      <button
+                        onClick={() => { setStudyMenuOpen(false); setReadingWords(selectedWords) }}
+                        className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                      >
+                        <span className="font-medium">选词阅读</span>
+                        <span className="text-gray-400 ml-1">· 沉浸式刷词</span>
+                      </button>
+                      <button
+                        onClick={() => { setStudyMenuOpen(false); launchReviewFromWords(selectedWords.map((w) => w.id!)) }}
+                        className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                      >
+                        <span className="font-medium">选词复习</span>
+                        <span className="text-gray-400 ml-1">· 评分巩固</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               <div className="relative">
                 <button
                   onClick={() => setSpellMenuOpen((v) => !v)}
@@ -853,6 +889,14 @@ export function CardsView() {
         />
       )}
       <CategoryTreeDialog open={treeDialogOpen} onClose={() => setTreeDialogOpen(false)} />
+
+      {readingWords && (
+        <ReadingMode
+          words={readingWords}
+          categories={categories}
+          onExit={() => setReadingWords(null)}
+        />
+      )}
     </Page>
   )
 }
